@@ -1,0 +1,549 @@
+# API Contracts: Personal Board of Directors
+
+**Date**: 2025-11-26
+**Version**: 1.0.0
+**Feature**: Personal Board of Directors
+
+---
+
+## API Overview
+
+This document defines the internal API contracts for data flow and agent orchestration within the Personal Board of Directors application. These are internal Python functions/interfaces, not external REST APIs.
+
+---
+
+## 1. Data Layer Contracts
+
+### 1.1 Note Loading Interface
+
+```python
+class NoteLoader:
+    """Parse Obsidian markdown files and extract frontmatter + content"""
+
+    def load_notes(directory_path: str) -> List[Note]:
+        """
+        Load all markdown files from directory
+
+        Args:
+            directory_path: Absolute path to notes directory
+
+        Returns:
+            List[Note] - Parsed notes with metadata
+
+        Raises:
+            DirectoryNotFoundError: Directory doesn't exist
+            PermissionError: Cannot read directory
+        """
+
+    def parse_frontmatter(file_path: str) -> tuple[dict, str]:
+        """
+        Extract frontmatter and content from markdown file
+
+        Args:
+            file_path: Path to markdown file
+
+        Returns:
+            Tuple of (frontmatter_dict, content_str)
+
+        Raises:
+            FrontmatterParseError: Malformed YAML frontmatter
+        """
+
+    def validate_note(note: Note) -> Note:
+        """
+        Validate note structure and metadata
+
+        Args:
+            note: Note to validate
+
+        Returns:
+            Validated Note
+
+        Raises:
+            ValidationError: Required fields missing or invalid
+        """
+```
+
+### 1.2 Vector Storage Interface
+
+```python
+class VectorStore:
+    """ChromaDB wrapper for vector operations"""
+
+    def initialize_collection(collection_name: str = "note_chunks"):
+        """
+        Initialize ChromaDB collection
+
+        Args:
+            collection_name: Name of the collection
+        """
+
+    def upsert_chunks(chunks: List[NoteChunk]) -> List[str]:
+        """
+        Insert or update note chunks in vector store
+
+        Args:
+            chunks: List of note chunks with embeddings
+
+        Returns:
+            List of document IDs
+        """
+
+    def similarity_search(
+        query_embedding: List[float],
+        k: int = 10,
+        threshold: float = 0.7
+    ) -> List[ContextDocument]:
+        """
+        Retrieve top-k similar chunks
+
+        Args:
+            query_embedding: Vector embedding of user query
+            k: Number of results to return (default 10 per FR-014)
+            threshold: Minimum similarity score
+
+        Returns:
+            List of ContextDocument with similarity scores
+        """
+
+    def delete_note_chunks(note_path: str) -> int:
+        """
+        Remove all chunks for a note (when note is deleted)
+
+        Args:
+            note_path: Path of note to delete
+
+        Returns:
+            Number of chunks deleted
+        """
+
+    def get_collection_stats() -> dict:
+        """
+        Get statistics about the vector collection
+
+        Returns:
+            Dict with count, last updated, etc.
+        """
+```
+
+### 1.3 Conversation Storage Interface
+
+```python
+class ConversationStore:
+    """SQLite wrapper for conversation history"""
+
+    def save_session(session: ConversationSession) -> str:
+        """
+        Persist conversation session to SQLite
+
+        Args:
+            session: Conversation session to save
+
+        Returns:
+            session_id
+        """
+
+    def load_session(session_id: str) -> ConversationSession:
+        """
+        Retrieve conversation session
+
+        Args:
+            session_id: Unique session identifier
+
+        Returns:
+            ConversationSession with all responses
+
+        Raises:
+            SessionNotFoundError: Session doesn't exist
+        """
+
+    def list_sessions(limit: int = 20, offset: int = 0) -> List[ConversationSession]:
+        """
+        List conversation sessions (for history UI)
+
+        Args:
+            limit: Number of sessions to return
+            offset: Pagination offset
+
+        Returns:
+            List of ConversationSession (most recent first)
+        """
+
+    def get_conversation_history(max_sessions: int = 5) -> List[str]:
+        """
+        Get recent conversation summaries for context
+
+        Args:
+            max_sessions: Number of recent sessions to include
+
+        Returns:
+            List of conversation summaries as strings
+        """
+```
+
+---
+
+## 2. Agent Orchestration Contracts
+
+### 2.1 Agent Node Interface
+
+```python
+class AgentNode:
+    """Base interface for all agents"""
+
+    def process(
+        state: AgentState,
+        context: List[ContextDocument]
+    ) -> AgentResponse:
+        """
+        Process query through agent
+
+        Args:
+            state: Current LangGraph state
+            context: Retrieved relevant documents
+
+        Returns:
+            AgentResponse with output and metadata
+
+        Raises:
+            LLMError: LLM inference failed
+            TimeoutError: Processing exceeded 60 seconds (per FR-011)
+        """
+
+    def get_system_prompt() -> str:
+        """
+        Get agent-specific system prompt
+
+        Returns:
+            Formatted prompt string
+        """
+```
+
+### 2.2 Specific Agent Implementations
+
+```python
+class ArchivistAgent(AgentNode):
+    """
+    Agent 1: Extracts facts with mandatory citations
+    Processes: User query + context → Factual summary with sources
+    """
+
+    def process(state: AgentState, context: List[ContextDocument]) -> AgentResponse:
+        """
+        Archivist specific processing:
+        - Review retrieved documents
+        - Extract objective facts
+        - Include citations to specific chunks
+        - Maintain factual tone
+        """
+
+class StrategistAgent(AgentNode):
+    """
+    Agent 2: ROI-focused analysis
+    Processes: Query + context + archivist_facts → Strategic analysis
+    """
+
+    def process(state: AgentState, context: List[ContextDocument]) -> AgentResponse:
+        """
+        Strategist specific processing:
+        - Analyze options and alternatives
+        - Evaluate pros/cons with ROI lens
+        - Consider tradeoffs and risks
+        - Provide critical thinking perspective
+        """
+
+class CoachAgent(AgentNode):
+    """
+    Agent 3: Empathetic reflection and synthesis
+    Processes: Query + context + archivist_facts + strategist_analysis → Advice
+    """
+
+    def process(state: AgentState, context: List[ContextDocument]) -> AgentResponse:
+        """
+        Coach specific processing:
+        - Synthesize insights from previous agents
+        - Ask reflective questions
+        - Provide empathetic guidance
+        - Frame actionable advice
+        """
+```
+
+### 2.3 LangGraph Workflow Contract
+
+```python
+class AgentGraph:
+    """LangGraph orchestration for three-agent workflow"""
+
+    def build_graph() -> StateGraph:
+        """
+        Construct LangGraph StateGraph
+
+        Workflow:
+        User Query → Retrieve Context → Archivist → Strategist → Coach → Response
+
+        Returns:
+            Compiled StateGraph
+        """
+
+    def invoke(query: str, history: List[str] = None) -> ConversationSession:
+        """
+        Execute complete advisory workflow
+
+        Args:
+            query: User's question
+            history: Previous conversation context (optional)
+
+        Returns:
+            Complete ConversationSession with all agent responses
+
+        Raises:
+            WorkflowTimeout: Exceeded 60-second limit (per FR-011)
+            InsufficientContextError: No relevant notes found
+        """
+
+    def get_state_schema() -> dict:
+        """
+        Define LangGraph state structure
+
+        Returns:
+            State schema with type hints
+        """
+```
+
+---
+
+## 3. Application Layer Contracts
+
+### 3.1 Main Application Interface
+
+```python
+class BoardOfDirectorsApp:
+    """Main Streamlit application"""
+
+    def initialize_app():
+        """
+        Initialize app state:
+        - Load configuration from .env
+        - Initialize vector store
+        - Load conversation history
+        """
+
+    def handle_user_query(query: str) -> dict:
+        """
+        Process user query through complete workflow
+
+        Args:
+            query: User's question
+
+        Returns:
+            Dict with:
+            - session_id: str
+            - archivist_response: str
+            - strategist_response: str
+            - coach_response: str
+            - context_documents: List[dict]
+            - processing_time: float
+            - evidence_collapsed: bool (default hidden per FR-005)
+        """
+
+    def load_conversation_history() -> List[ConversationSession]:
+        """
+        Retrieve conversation history for UI display
+
+        Returns:
+            List of previous sessions
+        """
+
+    def configure_notes_directory(path: str) -> dict:
+        """
+        Configure/change notes directory
+
+        Args:
+            path: Path to notes directory
+
+        Returns:
+            Dict with success status and message
+
+        Raises:
+            DirectoryError: Invalid or inaccessible directory
+        """
+```
+
+### 3.2 Configuration Contract
+
+```python
+class AppConfig:
+    """Application configuration (Pydantic models)"""
+
+    # LLM Configuration
+    llm_provider: str = "gemini-flash"  # Per clarified FR-015
+    llm_api_key: str
+    llm_timeout: int = 60  # Per FR-011
+
+    # Vector Store Configuration
+    vector_store_path: str = "./data/chroma_db"
+    retrieval_top_k: int = 10  # Per FR-014
+    chunk_size: int = 1000  # Per FR-014
+    chunk_overlap: int = 200  # Per FR-014
+
+    # Notes Configuration
+    notes_directory: str
+    incremental_reindexing: bool = True  # Per FR-013
+
+    # Conversation Configuration
+    conversation_db_path: str = "./data/conversations.db"
+    max_history_sessions: int = 5
+
+    # UI Configuration
+    evidence_default_collapsed: bool = True  # Per FR-005
+    max_conversation_display: int = 20
+
+    @validator('notes_directory')
+    def validate_notes_directory(cls, v):
+        """Ensure directory exists and is readable"""
+```
+
+---
+
+## 4. Error Handling Contracts
+
+### 4.1 Error Types
+
+```python
+class BoardError(Exception):
+    """Base exception for all application errors"""
+    pass
+
+class LLMError(BoardError):
+    """LLM inference failed"""
+    pass
+
+class TimeoutError(BoardError):
+    """Workflow exceeded time limit"""
+    pass
+
+class InsufficientContextError(BoardError):
+    """No relevant notes found for query"""
+    pass
+
+class DirectoryError(BoardError):
+    """Invalid notes directory"""
+    pass
+
+class ValidationError(BoardError):
+    """Data validation failed"""
+    pass
+```
+
+### 4.2 Graceful Degradation Contract
+
+```python
+def handle_agent_failure(
+    failed_agent: str,
+    partial_state: AgentState,
+    timeout_occurred: bool
+) -> AgentResponse:
+    """
+    Implement graceful degradation (per FR-011)
+
+    Args:
+        failed_agent: Which agent failed (archivist/strategist/coach)
+        partial_state: State with successful agent responses
+        timeout_occurred: Whether this was a timeout
+
+    Returns:
+        Degraded but coherent response
+    """
+```
+
+---
+
+## 5. Data Flow Diagrams
+
+### 5.1 Query Flow
+
+```
+User Query
+    ↓
+Retrieve Context (Vector Search, top-k=10)
+    ↓
+Archivist Agent (Facts + Citations)
+    ↓
+Strategist Agent (Analysis)
+    ↓
+Coach Agent (Synthesis)
+    ↓
+Return Response + Evidence (Hidden by Default)
+```
+
+### 5.2 Data Persistence Flow
+
+```
+Markdown Files
+    ↓
+Frontmatter Parser
+    ↓
+Chunking (1000 words, 200 overlap)
+    ↓
+Gemini Embeddings
+    ↓
+ChromaDB Vector Store
+    ↓
+(Search & Retrieval)
+```
+
+---
+
+## 6. Testing Contracts
+
+### 6.1 Unit Test Interfaces
+
+```python
+def test_note_parsing():
+    """Test markdown parsing and frontmatter extraction"""
+
+def test_vector_similarity():
+    """Test semantic search retrieval accuracy"""
+
+def test_agent_workflow():
+    """Test complete three-agent orchestration"""
+
+def test_conversation_persistence():
+    """Test SQLite storage and retrieval"""
+
+def test_incremental_reindexing():
+    """Test file change detection and selective update"""
+```
+
+### 6.2 Integration Test Interfaces
+
+```python
+def test_full_advisory_session():
+    """End-to-end: query → agents → response"""
+
+def test_conversation_history():
+    """Test follow-up questions with context"""
+
+def test_graceful_degradation():
+    """Test failure handling and timeout response"""
+
+def test_performance_requirements():
+    """Test SC-001 (<2 min) and SC-007 (<3 sec)"""
+```
+
+---
+
+## 7. API Compliance
+
+All contracts must:
+
+✅ Implement type hints (per constitution)
+✅ Use Pydantic for validation (per constitution)
+✅ Handle errors gracefully
+✅ Support incremental re-indexing (per FR-013)
+✅ Enforce 60-second timeout (per FR-011)
+✅ Store conversation history in SQLite (per FR-012)
+✅ Default to Gemini Flash LLM (per FR-015)
+✅ Use top-k=10 retrieval (per FR-014)
+✅ Hide evidence by default (per FR-005)
+✅ Maintain local data processing (per FR-007)

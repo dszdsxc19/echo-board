@@ -1,50 +1,43 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+SYNC IMPACT REPORT
+==================
+Version change: None → 1.0.0 (Initial constitution creation)
+Modified principles: N/A (all new)
+Added sections: Core Principles (5 sections: Engineering Standards, Modern Tech Stack, Monolithic Modular Architecture, Stateless Data Operations, Testing and Documentation), Tech Stack Requirements, Development Workflow, Governance
+Removed sections: N/A
+Templates verified: ✅ .specify/templates/plan-template.md (no updates needed - uses generic "Constitution Check"), ✅ .specify/templates/spec-template.md (no updates needed - technology-agnostic), ✅ .specify/templates/tasks-template.md (no updates needed - parameterized), ✅ .claude/commands/speckit.constitution.md (no updates needed - generic guidance)
+Follow-up TODOs: TODO(RATIFICATION_DATE) - Original adoption date unknown, requires team confirmation
+-->
+
+# Echo-Board Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Engineering Standards
+Python 3.10+ is mandatory for all code. Strict PEP 8 compliance required with Google Python Style Guide for docstrings. Type Hinting is mandatory for all function signatures using `typing` and `pydantic`. All internal code comments, docstrings, and commit messages must be in English. User-facing UI and Agent outputs must be in Simplified Chinese. Configuration follows 12-Factor App principles with secrets loaded via `.env` or Environment Variables, never hardcoded.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Modern Tech Stack
+Project must use latest stable versions of: Streamlit for frontend UI (clean, reactive components), LangGraph for orchestration (stateful multi-agent), `langchain-google-genai` for LLM integration (Gemini Pro/Flash & embeddings), ChromaDB for vector storage (local persistent mode), and Pydantic V2 for data validation. Library-level integrations preferred over custom server deployments for MVP scope.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Monolithic Modular Architecture
+MVP follows Monolithic Modular architecture using Repository Pattern for data access, State Machine for logic, and Component-based UI architecture. Maintain clear separation of concerns within unified deployment unit. Architecture decisions must prioritize simplicity and maintainability over premature distributed complexity.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Stateless Data Operations
+ChromaDB operates in local persistent mode for vector storage. All database operations must be transactional and reversible. Vector embeddings must be reproducible with consistent metadata tagging for audit trails. Regular data validation checkpoints required.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Testing and Documentation
+TDD encouraged: write tests first where practical. Integration tests mandatory for agent workflows and LLM interactions. Mock external API calls in unit tests. Comprehensive docstrings required for all public APIs. Inline comments required for complex business logic. Documentation must be kept current with code changes.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Tech Stack Requirements
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+All development must adhere to specified technology versions and integration patterns. Streamlit provides the frontend framework with emphasis on reactive components and clean user experience. LangGraph manages multi-agent orchestration with stateful workflows. `langchain-google-genai` handles all LLM operations including Gemini Pro, Flash, and embedding generation. ChromaDB stores vectors in persistent local mode. Pydantic V2 ensures strict data validation throughout the application.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+## Development Workflow
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+Feature development follows iterative approach: design → implementation → testing → documentation. Code reviews required for all changes. Pull requests must include test coverage and updated documentation. Main branch protection enforced with required checks. Commit messages follow conventional commits format. Automated testing runs on every commit. Documentation updated concurrent with feature development.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes all other development practices within the project. Amendments require documentation of changes, rationale, and migration plan. All contributors must verify compliance with these principles. Complexity must be justified with performance, security, or maintainability benefits. Use project documentation for runtime development guidance.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: TODO(RATIFICATION_DATE): Original adoption date unknown | **Last Amended**: 2025-11-26
