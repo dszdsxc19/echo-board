@@ -21,11 +21,11 @@
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Create project structure per implementation plan
-- [ ] T002 Initialize Python project with uv and pyproject.toml
-- [ ] T003 [P] Create .env.example with all configuration variables
-- [ ] T004 [P] Setup core directories (src/, data/, tests/)
-- [ ] T005 [P] Configure development dependencies and tooling (pytest, black, mypy)
+- [x] T001 Create project structure per implementation plan
+- [x] T002 Initialize Python project with uv and pyproject.toml
+- [x] T003 [P] Create .env.example with all configuration variables
+- [x] T004 [P] Setup core directories (src/, data/, tests/)
+- [x] T005 [P] Configure development dependencies and tooling (pytest, black, mypy)
 
 ---
 
@@ -35,12 +35,12 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T006 Create Pydantic models for data entities in src/core/models/
-- [ ] T007 [P] Implement configuration management in src/core/config.py
-- [ ] T008 [P] Define LangGraph state schema in src/core/state.py
-- [ ] T009 Create data directory structure (chroma_db, conversations.db)
-- [ ] T010 Initialize ChromaDB vector store and SQLite database
-- [ ] T011 Create .gitignore to exclude data/, .env, and __pycache__
+- [x] T006 Create Pydantic models for data entities in src/core/models/
+- [x] T007 [P] Implement configuration management in src/core/config.py
+- [x] T008 [P] Define LangGraph state schema in src/core/state.py
+- [x] T009 Create data directory structure (chroma_db, conversations.db)
+- [x] T010 Initialize ChromaDB vector store and SQLite database
+- [x] T011 Create .gitignore to exclude data/, .env, and __pycache__
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -54,19 +54,19 @@
 
 ### Implementation for User Story 1
 
-- [ ] T012 [P] [US1] Implement Note model and parser in src/data/loader.py
-- [ ] T013 [P] [US1] Create NoteChunk model with chunking logic (1000 words, 200 overlap)
-- [ ] T014 [P] [US1] Implement VectorStore with ChromaDB integration in src/data/vector_store.py
-- [ ] T015 [US1] Create agent prompt templates in src/agents/prompts/ (archivist.txt, strategist.txt, coach.txt)
-- [ ] T016 [US1] Implement three agent nodes in src/agents/nodes.py
-- [ ] T017 [US1] Build LangGraph workflow orchestration in src/agents/graph.py
-- [ ] T018 [US1] Create main Streamlit UI in src/app.py with chat interface
-- [ ] T019 [US1] Implement evidence display component (hidden by default per FR-005)
-- [ ] T020 [US1] Add loading states and progress indicators per agent
-- [ ] T021 [US1] Integrate note loading, vector search, and agent workflow
-- [ ] T022 [US1] Implement error handling for no relevant notes found (per FR-010)
-- [ ] T023 [US1] Implement Simplified Chinese UI strings and labels for all user-facing elements (per FR-016)
-- [ ] T024 [US1] Configure agent prompts to generate responses in Simplified Chinese (per FR-016)
+- [x] T012 [P] [US1] Implement Note model and parser in src/data/loader.py
+- [x] T013 [P] [US1] Create NoteChunk model with chunking logic (1000 words, 200 overlap)
+- [x] T014 [P] [US1] Implement VectorStore with ChromaDB integration in src/data/vector_store.py
+- [x] T015 [US1] Create agent prompt templates in src/agents/prompts/ (archivist.txt, strategist.txt, coach.txt)
+- [x] T016 [US1] Implement three agent nodes in src/agents/nodes.py
+- [x] T017 [US1] Build LangGraph workflow orchestration in src/agents/graph.py
+- [x] T018 [US1] Create main Streamlit UI in src/app.py with chat interface
+- [x] T019 [US1] Implement evidence display component (hidden by default per FR-005)
+- [x] T020 [US1] Add loading states and progress indicators per agent
+- [x] T021 [US1] Integrate note loading, vector search, and agent workflow
+- [x] T022 [US1] Implement error handling for no relevant notes found (per FR-010)
+- [x] T023 [US1] Implement Simplified Chinese UI strings and labels for all user-facing elements (per FR-016)
+- [x] T024 [US1] Configure agent prompts to generate responses in Simplified Chinese (per FR-016)
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
@@ -241,6 +241,24 @@ With multiple developers:
 - **Contract tests**: For API interfaces between components
 - **Mock external APIs**: LLM calls mocked in unit tests
 - **Performance tests**: Verify <2 min session time, <3 sec search
+
+### Python Version
+
+**IMPORTANT**: This project requires Python 3.10+ and must use the `python3` command (not `python`). Ensure your environment is configured correctly:
+
+```bash
+# Verify Python 3.10+
+python3 --version
+
+# Install dependencies
+python3 -m pip install -e .
+
+# Run tests
+python3 -m pytest
+
+# Run the application
+python3 -m streamlit run src/app.py
+```
 
 ---
 

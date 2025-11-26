@@ -9,7 +9,7 @@ Build a Personal Board of Directors MVP that enables users to receive balanced a
 
 ## Technical Context
 
-**Language/Version**: Python 3.10+ (Constitution Requirement: Python 3.10+)
+**Language/Version**: Python 3.10+ (use `python3` command, not `python`)
 **Primary Dependencies**: Streamlit (UI), LangGraph (multi-agent orchestration), langchain-google-genai (LLM integration), ChromaDB (vector storage), Pydantic V2 (validation), uv (dependency management)
 **Storage**: ChromaDB (local persistent mode) for vector storage, SQLite for conversation history (per clarified requirements)
 **Testing**: pytest (unit), Integration tests for agent workflows (mandatory per constitution)
@@ -24,7 +24,7 @@ Build a Personal Board of Directors MVP that enables users to receive balanced a
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 ### Gate 1: Engineering Standards ✅ PASS
-- Python 3.10+ enforced
+- Python 3.10+ enforced (use `python3` command)
 - Type hints mandatory (Pydantic V2)
 - Configuration via .env (12-Factor principles)
 

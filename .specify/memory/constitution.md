@@ -14,7 +14,7 @@ Follow-up TODOs: TODO(RATIFICATION_DATE) - Original adoption date unknown, requi
 ## Core Principles
 
 ### I. Engineering Standards
-Python 3.10+ is mandatory for all code. Strict PEP 8 compliance required with Google Python Style Guide for docstrings. Type Hinting is mandatory for all function signatures using `typing` and `pydantic`. All internal code comments, docstrings, and commit messages must be in English. User-facing UI and Agent outputs must be in Simplified Chinese. Configuration follows 12-Factor App principles with secrets loaded via `.env` or Environment Variables, never hardcoded.
+Python 3.10+ is mandatory for all code (use `python3` command, not `python`). Strict PEP 8 compliance required with Google Python Style Guide for docstrings. Type Hinting is mandatory for all function signatures using `typing` and `pydantic`. All internal code comments, docstrings, and commit messages must be in English. User-facing UI and Agent outputs must be in Simplified Chinese. Configuration follows 12-Factor App principles with secrets loaded via `.env` or Environment Variables, never hardcoded.
 
 ### II. Modern Tech Stack
 Project must use latest stable versions of: Streamlit for frontend UI (clean, reactive components), LangGraph for orchestration (stateful multi-agent), `langchain-google-genai` for LLM integration (Gemini Pro/Flash & embeddings), ChromaDB for vector storage (local persistent mode), and Pydantic V2 for data validation. Library-level integrations preferred over custom server deployments for MVP scope.
@@ -30,7 +30,7 @@ TDD encouraged: write tests first where practical. Integration tests mandatory f
 
 ## Tech Stack Requirements
 
-All development must adhere to specified technology versions and integration patterns. Streamlit provides the frontend framework with emphasis on reactive components and clean user experience. LangGraph manages multi-agent orchestration with stateful workflows. `langchain-google-genai` handles all LLM operations including Gemini Pro, Flash, and embedding generation. ChromaDB stores vectors in persistent local mode. Pydantic V2 ensures strict data validation throughout the application.
+All development must adhere to specified technology versions and integration patterns using Python 3.10+ (`python3` command). Streamlit provides the frontend framework with emphasis on reactive components and clean user experience. LangGraph manages multi-agent orchestration with stateful workflows. `langchain-google-genai` handles all LLM operations including Gemini Pro, Flash, and embedding generation. ChromaDB stores vectors in persistent local mode. Pydantic V2 ensures strict data validation throughout the application.
 
 ## Development Workflow
 
