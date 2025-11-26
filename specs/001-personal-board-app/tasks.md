@@ -65,6 +65,8 @@
 - [ ] T020 [US1] Add loading states and progress indicators per agent
 - [ ] T021 [US1] Integrate note loading, vector search, and agent workflow
 - [ ] T022 [US1] Implement error handling for no relevant notes found (per FR-010)
+- [ ] T023 [US1] Implement Simplified Chinese UI strings and labels for all user-facing elements (per FR-016)
+- [ ] T024 [US1] Configure agent prompts to generate responses in Simplified Chinese (per FR-016)
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
@@ -78,14 +80,14 @@
 
 ### Implementation for User Story 2
 
-- [ ] T023 [P] [US2] Create SQLite models for ConversationSession and AgentResponse
-- [ ] T024 [US2] Implement ConversationStore class for session persistence
-- [ ] T025 [US2] Add conversation history tracking to LangGraph state
-- [ ] T026 [US2] Update UI to display conversation history sidebar
-- [ ] T027 [US2] Implement session retrieval and context injection
-- [ ] T028 [US2] Add conversation history pagination (20 sessions per page)
-- [ ] T029 [US2] Update agent workflow to include conversation context
-- [ ] T030 [US2] Test follow-up question context maintenance
+- [ ] T025 [P] [US2] Create SQLite models for ConversationSession and AgentResponse
+- [ ] T026 [US2] Implement ConversationStore class for session persistence
+- [ ] T027 [US2] Add conversation history tracking to LangGraph state
+- [ ] T028 [US2] Update UI to display conversation history sidebar
+- [ ] T029 [US2] Implement session retrieval and context injection
+- [ ] T030 [US2] Add conversation history pagination (20 sessions per page)
+- [ ] T031 [US2] Update agent workflow to include conversation context
+- [ ] T032 [US2] Test follow-up question context maintenance
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
 
@@ -99,14 +101,14 @@
 
 ### Implementation for User Story 3
 
-- [ ] T031 [P] [US3] Create directory configuration UI in settings panel
-- [ ] T032 [US3] Implement directory validation (exists, readable, has .md files)
-- [ ] T033 [US3] Add incremental re-indexing logic (track file modification times)
-- [ ] T034 [US3] Create "Force Re-index All Notes" functionality
-- [ ] T035 [US3] Implement file change detection and selective update
-- [ ] T036 [US3] Add progress tracking for note indexing
-- [ ] T037 [US3] Handle edge cases (malformed frontmatter, non-md files)
-- [ ] T038 [US3] Test directory switching and re-indexing
+- [ ] T033 [P] [US3] Create directory configuration UI in settings panel
+- [ ] T034 [US3] Implement directory validation (exists, readable, has .md files)
+- [ ] T035 [US3] Add incremental re-indexing logic (track file modification times)
+- [ ] T036 [US3] Create "Force Re-index All Notes" functionality
+- [ ] T037 [US3] Implement file change detection and selective update
+- [ ] T038 [US3] Add progress tracking for note indexing
+- [ ] T039 [US3] Handle edge cases (malformed frontmatter, non-md files)
+- [ ] T040 [US3] Test directory switching and re-indexing
 
 **Checkpoint**: All user stories should now be independently functional
 
@@ -116,16 +118,17 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T039 [P] Add comprehensive error handling for all LLM operations
-- [ ] T040 [P] Implement graceful degradation with 60-second timeout (per FR-011)
-- [ ] T041 [P] Create logging infrastructure for debugging
-- [ ] T042 Add integration tests for three-agent workflow
-- [ ] T043 Add performance monitoring (advisory session time, search time)
-- [ ] T044 Create comprehensive README.md with setup instructions
-- [ ] T045 Add data validation checkpoints throughout workflow
-- [ ] T046 Implement agent response formatting and UI improvements
-- [ ] T047 Add API key validation and user feedback
-- [ ] T048 Final testing and bug fixes
+- [ ] T041 [P] Add comprehensive error handling for all LLM operations
+- [ ] T042 [P] Implement graceful degradation with 60-second timeout (per FR-011)
+- [ ] T043 [P] Create logging infrastructure for debugging
+- [ ] T044 Add integration tests for three-agent workflow
+- [ ] T045 Add performance monitoring (advisory session time, search time)
+- [ ] T046 Create comprehensive README.md with setup instructions
+- [ ] T047 Add data validation checkpoints throughout workflow
+- [ ] T048 Implement agent response formatting and UI improvements
+- [ ] T049 Add API key validation and user feedback
+- [ ] T050 Test Simplified Chinese language compliance for all UI and agent outputs (per FR-016)
+- [ ] T051 Final testing and bug fixes
 
 ---
 
@@ -229,6 +232,7 @@ With multiple developers:
 - **Evidence hidden by default** (FR-005)
 - **Gemini Flash** as default LLM (FR-015)
 - **Local data processing** (FR-007)
+- **Simplified Chinese** for all user-facing UI and agent outputs (FR-016)
 
 ### Testing Strategy
 

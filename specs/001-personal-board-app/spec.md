@@ -81,6 +81,7 @@ The user sets up or changes the directory location where their personal notes ar
 - **FR-013**: System MUST implement intelligent incremental re-indexing to update the knowledge base when notes are added or modified, tracking file modification timestamps to re-index only changed files
 - **FR-014**: System MUST implement dynamic retrieval configuration with top-k=10 for relevance-based filtering, chunk size=1000 words, and 200-word overlap for contextual continuity
 - **FR-015**: System MUST support pluggable LLM architecture with Gemini Flash as default provider, allowing simplified configuration and future extensibility
+- **FR-016**: System MUST display all user-facing UI elements and Agent outputs in Simplified Chinese, as per project constitution requirements
 
 ## Requirements *(mandatory)*
 
