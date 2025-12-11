@@ -19,3 +19,8 @@ chorma embedding setup:
 - https://docs.langchain.com/oss/python/integrations/vectorstores/chroma
 - https://docs.langchain.com/oss/python/integrations/text_embedding/ollama
 
+# 大模型
+- z.ai https://docs.bigmodel.cn/cn/guide/develop/langchain/introduction
+- langchain anthropic: https://docs.langchain.com/oss/python/integrations/chat/anthropic
+- 模型价格： https://open.bigmodel.cn/pricing
+
