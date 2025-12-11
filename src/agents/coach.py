@@ -1,0 +1,34 @@
+import os
+from langchain_core.messages import HumanMessage, SystemMessage
+from dotenv import find_dotenv, load_dotenv
+from langchain_openai import ChatOpenAI
+from pydantic import SecretStr
+
+from src.agents.board_members import BaseBoardMember
+from src.agents.prompts.coach_prompts import COACH_SYSTEM_PROMPT
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+class Coach(BaseBoardMember):
+    """
+    教练：看问题、事实以及战略官的观点，后手发言。
+    """
+    def __init__(self):
+        super().__init__("Coach", COACH_SYSTEM_PROMPT)
+        # 注意：教练的输入多了一个 'strategist_opinion'
+        self.prompt = ChatPromptTemplate.from_messages([
+            ("system", self.system_prompt),
+            ("user", "User Query: {query}\n\n[Fact Context]:\n{context}\n\n[Strategist's Opinion]:\n{strategist_opinion}")
+        ])
+        self.chain = self.prompt | self.llm | StrOutputParser()
+
+    def opine(self, query: str, context: str, strategist_opinion: str) -> str:
+        """
+        发表反驳 (Antithesis)
+        """
+        print(f"🧘 [教练] 正在评估心理健康风险...")
+        return self.chain.invoke({
+            "query": query,
+            "context": context,
+            "strategist_opinion": strategist_opinion
+        })
