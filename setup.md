@@ -24,3 +24,6 @@ chorma embedding setup:
 - langchain anthropic: https://docs.langchain.com/oss/python/integrations/chat/anthropic
 - 模型价格： https://open.bigmodel.cn/pricing
 
+## 拓展 数据源，我的痛点是财务数据（数字难以感知）
+
+选型，使用 Firefly III（而不是Beancount之类的）
