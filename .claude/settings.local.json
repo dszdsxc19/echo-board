@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git fetch:*)",
+      "Bash(.specify/scripts/bash/create-new-feature.sh:*)",
+      "Bash(.specify/scripts/bash/check-prerequisites.sh:*)",
+      "Bash(.specify/scripts/bash/setup-plan.sh:*)",
+      "Bash(.specify/scripts/bash/update-agent-context.sh claude)",
+      "Bash(git rev-parse:*)",
+      "Bash(tree:*)",
+      "Bash(python validate.py:*)",
+      "Bash(cat:*)",
+      "Bash(python3:*)",
+      "Bash(uv pip install:*)",
+      "Bash(uv:*)",
+      "Bash(ruff check:*)",
+      "Bash(source:*)",
+      "Bash(streamlit run:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
