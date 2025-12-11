@@ -1,87 +1,111 @@
 import os
+import logging
 from typing import List
-from langchain_ollama import OllamaEmbeddings
-from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings
-from langchain_chroma import Chroma
-from langchain_core.documents import Document
-from src.core.models.domain_models import LifeEvent # ⬇️ 引入模型
+from src.core.models.domain_models import LifeEvent
+from src.infrastructure.vector_store import KnowledgeBase
 
-# ==========================================
-# 1. 模拟数据 (Mock Data for MVP)
-# 在实际项目中，这里会替换为读取你的 Obsidian 文件夹
-# ==========================================
-OBSIDIAN_MOCK_CONTENT = """
-# 2023-10-10 工作复盘
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
-## 项目 A 的反思
-今天项目 A 的进度非常滞后。主要原因是在架构选型上犹豫太久。
-我认为我们需要重新评估 Go 语言在目前的适用性。
-目前团队对 Go 的掌握程度不够，导致开发效率低下。
-
-## 待办清单
-- 记得买猫粮
-- 预约牙医
-- 读《软件设计之美》第3章
-
-# 2023-10-11 心情日记
-
-## 焦虑时刻
-昨晚失眠了，一直在想房贷的事情。
-感觉现在的收入结构太单一，抗风险能力差。
-"""
-
-# ==========================================
-# 2. 核心逻辑：结构化切分 (The Ingestion Logic)
-# ==========================================
 class MemoryIngestionEngine:
-    def __init__(self, knowledge_base):
+    def __init__(self, knowledge_base: KnowledgeBase):
         self.kb = knowledge_base
 
-    def process_file(self, markdown_text: str, source_name: str = "unknown") -> List[LifeEvent]:
+    def process_file(self, file_content: str, source_name: str = "unknown") -> List[LifeEvent]:
         """
-        核心算法：利用 Markdown 标题保留上下文
+        处理单个文件内容 (逻辑保持不变)
         """
-        # A. 定义我们要切分的层级
+        logger.info(f"📄 开始处理文件: {source_name} (长度: {len(file_content)} 字符)")
+
+        # 1. 结构化切分 (按标题)
         headers_to_split_on = [
             ("#", "Date/Title"),
             ("##", "Section"),
             ("###", "SubSection"),
         ]
-
-        # B. 第一刀：按标题切分 (保留结构元数据)
         markdown_splitter = MarkdownHeaderTextSplitter(
             headers_to_split_on=headers_to_split_on
         )
-        md_header_splits = markdown_splitter.split_text(markdown_text)
+        md_header_splits = markdown_splitter.split_text(file_content)
+        logger.info(f"  └─ 结构化切分完成: {len(md_header_splits)} 个片段")
 
-        # C. 第二刀：按字符长度切分 (防止长文溢出，同时保留标题元数据)
-        # 这一步对于 "项目 A 的反思" 这种长段落很重要
+        # 2. 长度切分
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=500,
             chunk_overlap=50
         )
         final_splits = text_splitter.split_documents(md_header_splits)
+        logger.info(f"  └─ 长度切分完成: {len(final_splits)} 个块")
 
+        # 3. 转换为 LifeEvent
         life_events = []
-        
         for doc in final_splits:
-            # 在这里，我们将弱类型的 doc 封装为强类型的 LifeEvent
             event = LifeEvent(
                 content=doc.page_content,
                 source_type="obsidian",
                 metadata={
                     "source_file": source_name,
-                    # 将切分器提取的标题层级放入 metadata
-                    **doc.metadata 
+                    **doc.metadata
                 }
             )
             life_events.append(event)
 
-        print(f"⚙️ [Ingestion] 生成了 {len(life_events)} 个 LifeEvent 实体")
-        
-        # 存入仓库 (调用新的 add_events 方法)
-        self.kb.add_events(life_events)
-        
+        # 4. 存入仓库
+        if life_events:
+            self.kb.add_events(life_events)
+            logger.info(f"✅ 已保存 {len(life_events)} 个事件到向量数据库")
+        else:
+            logger.warning(f"⚠️ 未从文件 {source_name} 中提取到有效内容")
+
         return life_events
+
+    def ingest_folder(self, folder_path: str, max_files: int = 100):
+        """
+        [新增功能] 递归扫描文件夹并导入
+        :param folder_path: Obsidian 库的根目录路径
+        :param max_files: 安全限制，防止一次性读入几千个文件把钱烧光
+        """
+        logger.info(f"📂 [Loader] 开始扫描目录: {folder_path}")
+
+        if not os.path.exists(folder_path):
+            error_msg = f"路径不存在: {folder_path}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        processed_count = 0
+
+        # os.walk 递归遍历所有子目录
+        for root, dirs, files in os.walk(folder_path):
+            # 过滤掉隐藏文件夹 (如 .obsidian, .git)
+            dirs[:] = [d for d in dirs if not d.startswith('.')]
+
+            for file in files:
+                if processed_count >= max_files:
+                    logger.warning(f"🛑 [Loader] 达到最大文件限制 ({max_files})，停止加载。")
+                    return
+
+                if file.endswith(".md"):
+                    file_path = os.path.join(root, file)
+                    try:
+                        with open(file_path, "r", encoding="utf-8") as f:
+                            content = f.read()
+
+                        # 获取相对路径作为 source_name (例如: "Work/2023-10-10.md")
+                        relative_path = os.path.relpath(file_path, folder_path)
+
+                        # 调用之前的单文件处理逻辑
+                        self.process_file(content, source_name=relative_path)
+                        processed_count += 1
+                        logger.info(f"✅ [{processed_count}] 已处理: {relative_path}")
+
+                    except Exception as e:
+                        error_msg = f"跳过文件 {file}: {e}"
+                        logger.warning(error_msg)
+
+        logger.info(f"🎉 [Loader] 批量导入完成，共处理 {processed_count} 个文件。")
+        
