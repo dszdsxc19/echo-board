@@ -1,99 +1,47 @@
-from langchain_ollama import OllamaEmbeddings
+# infrastructure/vector_store.py
+import shutil
+import os
+from typing import List
 from langchain_chroma import Chroma
-from uuid import uuid4
+from langchain_ollama import OllamaEmbeddings
+from langchain_openai import OpenAIEmbeddings
+# ⬇️ 引入我们的核心模型
+from src.core.models.domain_models import LifeEvent
 
-from langchain_core.documents import Document
+class KnowledgeBase:
+    def __init__(self, persist_dir: str = "./data/chroma_db", reset_db: bool = False):
+        # ... (这部分保持不变) ...
+        self.persist_dir = persist_dir
+        self.embeddings = OllamaEmbeddings(model="nomic-embed-text:latest")
+        if reset_db and os.path.exists(persist_dir):
+            shutil.rmtree(persist_dir)
+        self.vector_db = Chroma(
+            collection_name="echo_board_memory",
+            embedding_function=self.embeddings,
+            persist_directory=self.persist_dir
+        )
 
-embeddings = OllamaEmbeddings(
-    model="nomic-embed-text:latest",
-)
+    def add_events(self, events: List[LifeEvent]):
+        """
+        [变更]: 现在接收强类型的 LifeEvent 列表
+        """
+        if not events:
+            return
+        
+        # 转换: LifeEvent -> LangChain Document
+        docs = [event.to_langchain_document() for event in events]
+        
+        # 存入 Chroma (使用 LifeEvent 的 UUID 作为数据库 ID)
+        ids = [event.id for event in events]
+        self.vector_db.add_documents(documents=docs, ids=ids)
+        
+        print(f"💾 [KnowledgeBase] 已存入 {len(events)} 个 LifeEvent 对象。")
 
-vector_store = Chroma(
-    collection_name="example_collection",
-    embedding_function=embeddings,
-    persist_directory="./data/chroma_db/chroma_langchain_db",
-)
-
-
-document_1 = Document(
-    page_content="I had chocolate chip pancakes and scrambled eggs for breakfast this morning.",
-    metadata={"source": "tweet"},
-    id=1,
-)
-
-document_2 = Document(
-    page_content="The weather forecast for tomorrow is cloudy and overcast, with a high of 62 degrees.",
-    metadata={"source": "news"},
-    id=2,
-)
-
-document_3 = Document(
-    page_content="Building an exciting new project with LangChain - come check it out!",
-    metadata={"source": "tweet"},
-    id=3,
-)
-
-document_4 = Document(
-    page_content="Robbers broke into the city bank and stole $1 million in cash.",
-    metadata={"source": "news"},
-    id=4,
-)
-
-document_5 = Document(
-    page_content="Wow! That was an amazing movie. I can't wait to see it again.",
-    metadata={"source": "tweet"},
-    id=5,
-)
-
-document_6 = Document(
-    page_content="Is the new iPhone worth the price? Read this review to find out.",
-    metadata={"source": "website"},
-    id=6,
-)
-
-document_7 = Document(
-    page_content="The top 10 soccer players in the world right now.",
-    metadata={"source": "website"},
-    id=7,
-)
-
-document_8 = Document(
-    page_content="LangGraph is the best framework for building stateful, agentic applications!",
-    metadata={"source": "tweet"},
-    id=8,
-)
-
-document_9 = Document(
-    page_content="The stock market is down 500 points today due to fears of a recession.",
-    metadata={"source": "news"},
-    id=9,
-)
-
-document_10 = Document(
-    page_content="I have a bad feeling I am going to get deleted :(",
-    metadata={"source": "tweet"},
-    id=10,
-)
-
-documents = [
-    document_1,
-    document_2,
-    document_3,
-    document_4,
-    document_5,
-    document_6,
-    document_7,
-    document_8,
-    document_9,
-    document_10,
-]
-uuids = [str(uuid4()) for _ in range(len(documents))]
-
-vector_store.add_documents(documents=documents, ids=uuids)
-
-results = vector_store.similarity_search_with_score(
-    "Will it be hot tomorrow?", k=1, filter={"source": "news"}
-)
-for res, score in results:
-    print(f"* [SIM={score:3f}] {res.page_content} [{res.metadata}]")
-    
+    def search(self, query: str, k: int = 5) -> List[LifeEvent]:
+        """
+        [变更]: 返回 LifeEvent 列表，而不是 Document
+        """
+        raw_docs = self.vector_db.similarity_search(query, k=k)
+        
+        # 转换: LangChain Document -> LifeEvent
+        return [LifeEvent.from_langchain_document(doc) for doc in raw_docs]
