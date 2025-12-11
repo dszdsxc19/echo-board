@@ -10,15 +10,23 @@ from src.agents.archivist import Archivist
 from src.agents.coach import Coach
 from src.agents.strategist import Strategist
 from src.agents.synthesizer import Synthesizer
-
+from src.agents.cfo import CFO
+from src.agents.router import Router
 
 # 定义整个辩论过程中的状态数据
 class BoardState(TypedDict):
+    # --- 上下文层 ---
     query: str                # 用户原始问题
     context: str              # 史官查到的事实
     strategist_opinion: str   # 战略官的观点
+
+    # --- 辩论层 ---
     coach_opinion: str        # 教练的观点
     final_verdict: str        # 最终决议
+    financial_report: str
+
+    # --- 单次执行层 ---
+    cfo_result: str           # 纯记账时的返回结果
     messages: Annotated[List[str], operator.add] # (可选) 用于记录完整的对话历史
 
 # 进度更新数据结构
@@ -27,6 +35,7 @@ class ProgressUpdate(TypedDict):
     message: str        # 进度消息
     start_time: float   # 开始时间戳
     duration: Optional[float]  # 耗时（秒）
+
 
 class BoardOrchestrator:
     def __init__(self, vector_store, progress_callback: Optional[Callable[[str, str, float], None]] = None):
@@ -39,7 +48,9 @@ class BoardOrchestrator:
         self.archivist = Archivist(vector_store)
         self.strategist = Strategist()
         self.coach = Coach()
+        self.cfo = CFO()
         self.synthesizer = Synthesizer()
+        self.router = Router()
 
         # 进度回调函数
         self.progress_callback = progress_callback
@@ -92,6 +103,24 @@ class BoardOrchestrator:
                 self.progress_callback("教练", "✅ 教练已完成指导", start_time)
             return {"coach_opinion": opinion}
 
+        # === CFO Node 1: 纯执行 (记账) ===
+        async def run_cfo_execution(state: BoardState):
+            print("💰 [CFO Execution] Processing transaction...")
+            result = await self.cfo.execute(state["query"])
+            return {"cfo_result": result}
+        
+        # === CFO Node 2: 顾问 (查账提供上下文) ===
+        async def run_cfo_advisory(state: BoardState):
+            print("📊 [CFO Advisory] Analyzing financial status for the board...")
+            
+            # 技巧：我们可以稍微修改一下给 CFO 的 Prompt，让他知道现在是查询模式
+            # 或者直接把用户的原始问题给他，Agent 通常足够聪明能自己判断
+            # 这里为了稳妥，我们构造一个 prompt
+            advisory_query = f"User Query: '{state['query']}'. Please provide relevant financial context (balance, recent transactions) to help the board answer this."
+            
+            result = await self.cfo.execute(advisory_query)
+            return {"financial_report": result}
+
         def run_synthesizer(state: BoardState):
             # 决议者节点：综合所有信息，输出最终结论
             start_time = time.time()
@@ -108,24 +137,62 @@ class BoardOrchestrator:
                 self.progress_callback("决议者", "✅ 董事会已达成决议", start_time)
             return {"final_verdict": verdict}
 
-        workflow.add_node("archivist", run_archivist)
+        # === 1. Define Nodes ===
+        
+        # 分支 A 的节点
+        workflow.add_node("cfo_execution", run_cfo_execution)
+        
+        # 分支 B 的并行节点
+        workflow.add_node("archivist", run_archivist) # 返回 {"context": ...}
+        workflow.add_node("cfo_advisory", run_cfo_advisory) # 返回 {"financial_report": ...}
+        
+        # 汇合后的节点
         workflow.add_node("strategist", run_strategist)
         workflow.add_node("coach", run_coach)
         workflow.add_node("synthesizer", run_synthesizer)
 
-        # --- 定义连线 (Edges) ---
-        # 这是一个线性流程 (Linear Flow)，未来可以改成循环
-        workflow.set_entry_point("archivist")
+        # === 2. Define Edges ===
+
+        # [关键] 入口路由逻辑
+        def route_entry(state: BoardState):
+            intent = self.router.decide(state["query"])
+            print(f"🚦 [Router] Routing to: {intent}")
+            if intent == "finance_execution":
+                # 这是一个单一路径
+                return "cfo_execution"
+            else:
+                # [并行触发] 返回一个列表，LangGraph 会自动并行执行这些节点！
+                return ["archivist", "cfo_advisory"]
+
+        # 设置条件入口
+        workflow.set_conditional_entry_point(
+            route_entry,
+            {
+                "cfo_execution": "cfo_execution",
+                "archivist": "archivist",
+                "cfo_advisory": "cfo_advisory"
+            }
+        )
+
+        # 分支 A 结束
+        workflow.add_edge("cfo_execution", END)
+
+        # 分支 B 汇合逻辑
+        # LangGraph 会等待 archivist 和 cfo_advisory 都执行完，
+        # 然后把它们的结果合并到 State 中，再传给 strategist
         workflow.add_edge("archivist", "strategist")
+        workflow.add_edge("cfo_advisory", "strategist")
+
+        # 后续线性流程
         workflow.add_edge("strategist", "coach")
         workflow.add_edge("coach", "synthesizer")
         workflow.add_edge("synthesizer", END)
 
         return workflow.compile()
 
-    def run_meeting(self, user_query: str):
-        """外部调用的入口"""
-        initial_state = BoardState(query= user_query, context="", strategist_opinion="", coach_opinion="", final_verdict="", messages=[])
-        final_state = self.graph.invoke(initial_state)
+    # 入口也变成了 async
+    async def run_meeting(self, user_query: str):
+        initial_state = {"query": user_query}
+        final_state = await self.graph.ainvoke(initial_state)
         return final_state
-
+    

@@ -27,3 +27,17 @@ chorma embedding setup:
 ## 拓展 数据源，我的痛点是财务数据（数字难以感知）
 
 选型，使用 Firefly III（而不是Beancount之类的）
+
+docker-compose 启动：https://docs.firefly-iii.org/how-to/firefly-iii/installation/docker/
+
+docker compose -f docker-compose.yml up -d --pull=always
+
+mcp server: https://github.com/etnperlong/firefly-iii-mcp/?tab=readme-ov-file
+
+http://localhost:3000/mcp 连接
+
+# Langchain MCP: https://docs.langchain.com/oss/python/langchain/mcp#http
+
+# Langchain Agents: https://docs.langchain.com/oss/python/langchain/agents
+
+
