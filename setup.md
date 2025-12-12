@@ -40,4 +40,5 @@ http://localhost:3000/mcp 连接
 
 # Langchain Agents: https://docs.langchain.com/oss/python/langchain/agents
 
+Zhipu 结构化输出有问题：https://docs.bigmodel.cn/cn/guide/capabilities/struct-output
 
