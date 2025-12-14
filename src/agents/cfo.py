@@ -1,6 +1,8 @@
 import asyncio
 
 from langchain.agents import create_agent
+from langchain_core.messages import SystemMessage
+from langchain_core.messages.human import HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
 
 from src.agents.board_members import BaseBoardMember
@@ -12,13 +14,10 @@ class CFO(BaseBoardMember):
     """
     CFO：管理财务，记录交易。
     """
+
     def __init__(self):
         super().__init__("CFO", CFO_SYSTEM_PROMPT)
         # 注意：教练的输入多了一个 'strategist_opinion'
-        self.prompt = ChatPromptTemplate.from_messages([
-            ("system", self.system_prompt),
-            ("user", "User Query: {query}")
-        ])
         self._tools = None
         self.agent_executor = None
         self._init_lock = asyncio.Lock()
@@ -33,7 +32,11 @@ class CFO(BaseBoardMember):
         async with self._init_lock:
             if self._tools is None:
                 self._tools = await create_mcp_tools()
-            self.agent_executor = create_agent(self.llm, self._tools, self.prompt)
+            self.agent_executor = create_agent(
+                self.llm,
+                self._tools,
+                system_prompt=SystemMessage(content=self.system_prompt),
+            )
 
     async def execute(self, query: str) -> str:
         """
@@ -43,5 +46,6 @@ class CFO(BaseBoardMember):
         """
         await self._ensure_agent()
         # invoke 返回的是一个字典，包含 'input', 'output' 等
-        result = await self.agent_executor.ainvoke({"input": query})
-        return result["output"]
+        result = await self.agent_executor.ainvoke({"messages": [HumanMessage(query)]})
+        print("result is: ", result)
+        return result
