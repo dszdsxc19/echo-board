@@ -3,6 +3,7 @@ import logging
 from typing import List
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 from src.core.models.domain_models import LifeEvent
+from src.infrastructure.mem0_service import UserProfileService
 from src.infrastructure.vector_store import KnowledgeBase
 
 # 配置日志
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 class MemoryIngestionEngine:
     def __init__(self, knowledge_base: KnowledgeBase):
         self.kb = knowledge_base
+        self.mem0 = UserProfileService()
 
     def process_file(self, file_content: str, source_name: str = "unknown") -> List[LifeEvent]:
         """
@@ -62,6 +64,8 @@ class MemoryIngestionEngine:
         else:
             logger.warning(f"⚠️ 未从文件 {source_name} 中提取到有效内容")
 
+        self.mem0.remember(file_content)
+        
         return life_events
 
     def ingest_folder(self, folder_path: str, max_files: int = 100):

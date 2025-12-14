@@ -12,6 +12,7 @@ from src.agents.strategist import Strategist
 from src.agents.synthesizer import Synthesizer
 from src.agents.cfo import CFO
 from src.agents.router import Router
+from src.infrastructure.mem0_service import UserProfileService
 
 # 定义整个辩论过程中的状态数据
 class BoardState(TypedDict):
@@ -19,6 +20,7 @@ class BoardState(TypedDict):
     query: str                # 用户原始问题
     context: str              # 史官查到的事实
     strategist_opinion: str   # 战略官的观点
+    user_profile: str     # Mem0: 用户是什么样的人 (Preferences/Facts) [NEW]
 
     # --- 辩论层 ---
     coach_opinion: str        # 教练的观点
@@ -45,6 +47,7 @@ class BoardOrchestrator:
             progress_callback: 进度回调函数，接收 (stage: str, message: str, start_time: float) 参数
         """
         # 初始化各个角色
+        self.mem0 = UserProfileService(user_id="owner") # 初始化 Mem0
         self.archivist = Archivist(vector_store)
         self.strategist = Strategist()
         self.coach = Coach()
@@ -65,6 +68,15 @@ class BoardOrchestrator:
         workflow = StateGraph(BoardState)
 
         # --- 添加节点 (Nodes) ---
+        # === [NEW] Profile Node ===
+        def run_profile_loader(self, state: BoardState):
+            """
+            专门负责去 Mem0 查询与当前 Query 相关的用户偏好
+            """
+            query = state["query"]
+            print("🧠 [Mem0] Loading user profile...")
+            profile = self.mem0.get_profile(query)
+            return {"user_profile": profile}
 
         def run_archivist(state: BoardState):
             # 史官节点：输入 query，更新 context
@@ -83,7 +95,7 @@ class BoardOrchestrator:
             if self.progress_callback:
                 self.progress_callback("战略官", "🎯 战略官正在分析形势...", start_time)
             print("--- Step 2: Strategist ---")
-            opinion = self.strategist.opine(state["query"], state["context"])
+            opinion = self.strategist.opine(state["query"], state["context"], state["user_profile"])
             if self.progress_callback:
                 self.progress_callback("战略官", "✅ 战略官已完成分析", start_time)
             return {"strategist_opinion": opinion}
@@ -97,7 +109,8 @@ class BoardOrchestrator:
             opinion = self.coach.opine(
                 state["query"],
                 state["context"],
-                state["strategist_opinion"]
+                state["strategist_opinion"],
+                state["user_profile"]
             )
             if self.progress_callback:
                 self.progress_callback("教练", "✅ 教练已完成指导", start_time)
@@ -133,18 +146,22 @@ class BoardOrchestrator:
                 "strategist_opinion": state["strategist_opinion"],
                 "coach_opinion": state["coach_opinion"]
             })
+            # [NEW] 让系统记住这次的决议
+            # 这样下次 Mem0 就能搜到 "User was advised to sleep early on Oct 25"
+            self.mem0.remember(f"Interaction Date: Today. User asked: {state['query']}. Decision: {verdict}")
             if self.progress_callback:
                 self.progress_callback("决议者", "✅ 董事会已达成决议", start_time)
             return {"final_verdict": verdict}
 
         # === 1. Define Nodes ===
-        
+
         # 分支 A 的节点
         workflow.add_node("cfo_execution", run_cfo_execution)
         
         # 分支 B 的并行节点
         workflow.add_node("archivist", run_archivist) # 返回 {"context": ...}
         workflow.add_node("cfo_advisory", run_cfo_advisory) # 返回 {"financial_report": ...}
+        workflow.add_node("profile_loader", self.run_profile_loader) # [NEW]
         
         # 汇合后的节点
         workflow.add_node("strategist", run_strategist)
@@ -162,7 +179,7 @@ class BoardOrchestrator:
                 return "cfo_execution"
             else:
                 # [并行触发] 返回一个列表，LangGraph 会自动并行执行这些节点！
-                return ["archivist", "cfo_advisory"]
+                return ["archivist", "cfo_advisory", "profile_loader"]
 
         # 设置条件入口
         workflow.set_conditional_entry_point(
@@ -182,6 +199,7 @@ class BoardOrchestrator:
         # 然后把它们的结果合并到 State 中，再传给 strategist
         workflow.add_edge("archivist", "strategist")
         workflow.add_edge("cfo_advisory", "strategist")
+        workflow.add_edge("profile_loader", "strategist")
 
         # 后续线性流程
         workflow.add_edge("strategist", "coach")
