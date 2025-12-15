@@ -65,14 +65,24 @@ class UserProfileService:
         """
         [读取路径]: 获取与当前话题相关的用户画像
         """
-        # Mem0 的 search 会返回一个列表，包含提取出的事实
+        # Mem0 的 search 会返回一个列表，元素可能是字符串，也可能是 dict
         memories = self.m.search(query, user_id=self.user_id)
 
         if not memories:
             return "No specific user preferences found."
 
-        # 格式化为自然语言字符串
-        profile_text = "\n".join([f"- {m['memory']}" for m in memories])
+        # 兼容字符串 / dict 两种结果格式
+        lines = []
+        for m in memories:
+            if isinstance(m, dict):
+                # 官方 SDK 常见字段名：memory 或 text
+                text = m.get("memory") or m.get("text") or str(m)
+            else:
+                text = str(m)
+            lines.append(f"- {text}")
+
+        profile_text = "\n".join(lines)
+        print("User profile: ", profile_text)
         return profile_text
 
     def get_all_memories(self):

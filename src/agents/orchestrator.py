@@ -67,7 +67,8 @@ class BoardOrchestrator:
 
         # --- 添加节点 (Nodes) ---
         # === [NEW] Profile Node ===
-        def run_profile_loader(self, state: BoardState):
+        # 注意：这里是普通的嵌套函数，不需要也不能带 self 参数
+        def run_profile_loader(state: BoardState):
             """
             专门负责去 Mem0 查询与当前 Query 相关的用户偏好
             """
@@ -93,7 +94,7 @@ class BoardOrchestrator:
             if self.progress_callback:
                 self.progress_callback("战略官", "🎯 战略官正在分析形势...", start_time)
             print("--- Step 2: Strategist ---")
-            opinion = self.strategist.opine(state["query"], state["context"], state["user_profile"])
+            opinion = self.strategist.opine(state["query"], state["context"], state["financial_report"], state["user_profile"])
             if self.progress_callback:
                 self.progress_callback("战略官", "✅ 战略官已完成分析", start_time)
             return {"strategist_opinion": opinion}
@@ -184,7 +185,9 @@ class BoardOrchestrator:
             {
                 "cfo_execution": "cfo_execution",
                 "archivist": "archivist",
-                "cfo_advisory": "cfo_advisory"
+                "cfo_advisory": "cfo_advisory",
+                # [NEW] 并行入口里还会返回 "profile_loader"，这里也要声明
+                "profile_loader": "profile_loader",
             }
         )
 

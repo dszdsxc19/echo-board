@@ -2,6 +2,7 @@
 import os
 import sys
 import time
+import asyncio
 
 import streamlit as st
 
@@ -366,7 +367,8 @@ if prompt := st.chat_input("告诉董事会你的想法..."):
             final_state = {}
 
             def run_orchestrator():
-                final_state["result"] = orchestrator.run_meeting(prompt)
+                # 在单独线程中运行异步的 run_meeting
+                final_state["result"] = asyncio.run(orchestrator.run_meeting(prompt))
 
             thread = threading.Thread(target=run_orchestrator)
             thread.start()
