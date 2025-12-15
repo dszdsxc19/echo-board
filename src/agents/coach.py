@@ -26,7 +26,7 @@ class Coach(BaseBoardMember):
         """
         发表反驳 (Antithesis)
         """
-        print(f"🧘 [教练] 正在评估心理健康风险...")
+        print("🧘 [教练] 正在评估心理健康风险...")
         return self.chain.invoke({
             "query": query,
             "user_profile": user_profile,

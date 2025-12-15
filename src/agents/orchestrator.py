@@ -1,5 +1,3 @@
-
-# 引入之前的角色类
 import operator
 import time
 from typing import Annotated, Callable, List, Optional, TypedDict
@@ -121,16 +119,16 @@ class BoardOrchestrator:
             print("💰 [CFO Execution] Processing transaction...")
             result = await self.cfo.execute(state["query"])
             return {"cfo_result": result}
-        
+
         # === CFO Node 2: 顾问 (查账提供上下文) ===
         async def run_cfo_advisory(state: BoardState):
             print("📊 [CFO Advisory] Analyzing financial status for the board...")
-            
+
             # 技巧：我们可以稍微修改一下给 CFO 的 Prompt，让他知道现在是查询模式
             # 或者直接把用户的原始问题给他，Agent 通常足够聪明能自己判断
             # 这里为了稳妥，我们构造一个 prompt
             advisory_query = f"User Query: '{state['query']}'. Please provide relevant financial context (balance, recent transactions) to help the board answer this."
-            
+
             result = await self.cfo.execute(advisory_query)
             return {"financial_report": result}
 
@@ -154,15 +152,14 @@ class BoardOrchestrator:
             return {"final_verdict": verdict}
 
         # === 1. Define Nodes ===
-
         # 分支 A 的节点
         workflow.add_node("cfo_execution", run_cfo_execution)
-        
+
         # 分支 B 的并行节点
         workflow.add_node("archivist", run_archivist) # 返回 {"context": ...}
         workflow.add_node("cfo_advisory", run_cfo_advisory) # 返回 {"financial_report": ...}
-        workflow.add_node("profile_loader", self.run_profile_loader) # [NEW]
-        
+        workflow.add_node("profile_loader", run_profile_loader) # [NEW]
+
         # 汇合后的节点
         workflow.add_node("strategist", run_strategist)
         workflow.add_node("coach", run_coach)
@@ -213,4 +210,3 @@ class BoardOrchestrator:
         initial_state = {"query": user_query}
         final_state = await self.graph.ainvoke(initial_state)
         return final_state
-    

@@ -1,7 +1,11 @@
 import os
 from dotenv import find_dotenv
 from dotenv.main import load_dotenv
+from langchain_chroma import Chroma
+from langchain_ollama import OllamaEmbeddings
+from langchain_openai import ChatOpenAI
 from mem0 import Memory
+from pydantic import SecretStr
 
 load_dotenv(find_dotenv())
 
@@ -9,16 +13,39 @@ api_key = os.getenv("OPEN_AI_API_KEY")
 base_url = os.getenv("OPEN_AI_API_BASE")
 chat_model = os.getenv("CHAT_MODEL")
 
+os.environ["OPENAI_API_KEY"] = api_key
+
+
+llm = ChatOpenAI(
+    temperature=0.7,
+    model=chat_model,
+    api_key=SecretStr(api_key),
+    base_url=base_url
+)
 class UserProfileService:
     def __init__(self, user_id: str = "default_user"):
+
         config = {
             "llm": {
-                "provider": "OpenAI",
+                "provider": "langchain",
                 "config": {
-                    # Provider-specific settings go here
-                    api_key: api_key,
-                    model: chat_model,
-                    openai_base_url: base_url
+                    "model": llm
+                }
+            },
+            "embedder": {
+                "provider": "langchain",
+                "config": {
+                    "model": OllamaEmbeddings(model="nomic-embed-text:latest"),
+                }
+            },
+            "vector_store": {
+                "provider": "langchain",
+                "config": {
+                    "client": Chroma(
+                        persist_directory="./mem0/chroma_db",
+                        embedding_function=OllamaEmbeddings(model="nomic-embed-text:latest"),
+                        collection_name="mem0"  # Required collection name
+                    )
                 }
             }
         }
@@ -30,7 +57,7 @@ class UserProfileService:
         """
         [写入路径]: 让系统记住一个新的事实/偏好
         通常在处理日记或对话结束后调用
-        """·
+        """
         print(f"🧠 [Mem0] Extracting facts from: {text[:30]}...")
         self.m.add(text, user_id=self.user_id)
 
@@ -40,10 +67,10 @@ class UserProfileService:
         """
         # Mem0 的 search 会返回一个列表，包含提取出的事实
         memories = self.m.search(query, user_id=self.user_id)
-        
+
         if not memories:
             return "No specific user preferences found."
-            
+
         # 格式化为自然语言字符串
         profile_text = "\n".join([f"- {m['memory']}" for m in memories])
         return profile_text
