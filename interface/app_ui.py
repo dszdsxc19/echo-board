@@ -1,8 +1,8 @@
 # interface/app_ui.py
+import asyncio
 import os
 import sys
 import time
-import asyncio
 
 import streamlit as st
 
@@ -324,6 +324,34 @@ with st.sidebar:
 # ==========================================
 
 # A. 渲染历史消息
+if not st.session_state.messages:
+    # Render Welcome Screen
+    st.markdown("""
+    <div style="text-align: center; padding: 2rem 0;">
+        <h1>👋 Welcome to Echo-Board</h1>
+        <p style="color: #666; font-size: 1.1em;">Your Personal Board of Directors</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("""
+        <div class="stat-box strategist-box">
+            <h3>🔴 The Strategist</h3>
+            <p>Focuses on long-term goals, efficiency, and brutal honesty. Helps you prioritize.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col2:
+        st.markdown("""
+        <div class="stat-box coach-box">
+            <h3>🔵 The Coach</h3>
+            <p>Focuses on well-being, sustainability, and personal growth. Ensures you don't burn out.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.caption("👈 Check the sidebar to **Sync Data** or start a **Daily Briefing**.")
+
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         if msg["role"] == "user":
