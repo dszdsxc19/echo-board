@@ -178,14 +178,12 @@ with st.sidebar:
                                 md_files.append(os.path.join(root, file))
 
                     total_files = len(md_files)
-                    total_content_length = 0
+                    total_size_bytes = 0
 
-                    # 第一遍扫描：计算总内容长度
+                    # 第一遍扫描：计算总文件大小 (Bytes) - ⚡ Bolt Optimization: Replace full read with os.path.getsize
                     for file_path in md_files:
                         try:
-                            with open(file_path, "r", encoding="utf-8") as f:
-                                content = f.read()
-                            total_content_length += len(content)
+                            total_size_bytes += os.path.getsize(file_path)
                         except Exception:
                             pass
 
@@ -195,7 +193,8 @@ with st.sidebar:
 
                     # 逐步处理文件
                     processed = 0
-                    processed_content = 0
+                    processed_bytes = 0
+                    total_content_length = 0 # Track this for final stats
 
                     # 初始化日志列表
                     processed_files = []
@@ -205,6 +204,8 @@ with st.sidebar:
                             # 读取文件内容
                             with open(file_path, "r", encoding="utf-8") as f:
                                 content = f.read()
+
+                            file_size = len(content.encode('utf-8')) # Approximate byte size for progress
 
                             relative_path = os.path.relpath(file_path, folder_path)
 
@@ -218,7 +219,8 @@ with st.sidebar:
                             ingestion_engine.process_file(content, source_name=relative_path)
 
                             processed += 1
-                            processed_content += len(content)
+                            processed_bytes += file_size
+                            total_content_length += len(content)
 
                             # 记录已处理的文件
                             processed_files.append({
@@ -234,11 +236,15 @@ with st.sidebar:
                             log_container.markdown(log_text)
 
                             # 更新进度
-                            progress_percent = (processed_content / total_content_length) * 100
+                            if total_size_bytes > 0:
+                                progress_percent = min((processed_bytes / total_size_bytes) * 100, 100)
+                            else:
+                                progress_percent = 100
+
                             sync_progress.progress(int(progress_percent))
                             sync_text.text(
                                 f"进度: {processed}/{total_files} 文件 | "
-                                f"{processed_content}/{total_content_length} 字符 "
+                                f"{processed_bytes}/{total_size_bytes} Bytes "
                                 f"({progress_percent:.1f}%)"
                             )
 
