@@ -199,6 +199,10 @@ with st.sidebar:
                     # 初始化日志列表
                     processed_files = []
 
+                    # ⚡ Bolt Optimization: Batch database writes
+                    batched_events = []
+                    BATCH_SIZE = 50
+
                     for file_path in md_files:
                         try:
                             # 读取文件内容
@@ -215,8 +219,16 @@ with st.sidebar:
                                 f"({len(content)} 字符)"
                             )
 
-                            # 处理文件
-                            ingestion_engine.process_file(content, source_name=relative_path)
+                            # 处理文件 (不立即存入DB)
+                            events = ingestion_engine.process_file(content, source_name=relative_path, persist=False)
+                            if events:
+                                batched_events.extend(events)
+
+                            # 批量保存
+                            if len(batched_events) >= BATCH_SIZE:
+                                sync_file_text.markdown(f"**正在保存批量数据**: {len(batched_events)} 个片段...")
+                                ingestion_engine.save_events(batched_events)
+                                batched_events = [] # Reset batch
 
                             processed += 1
                             processed_bytes += file_size
@@ -264,6 +276,12 @@ with st.sidebar:
                                 ])
                             )
                             st.warning(error_msg)
+
+                    # Process remaining batch
+                    if batched_events:
+                        sync_file_text.markdown(f"**正在保存剩余数据**: {len(batched_events)} 个片段...")
+                        ingestion_engine.save_events(batched_events)
+                        batched_events = []
 
                     # 同步完成
                     total_time = time.time() - start_time

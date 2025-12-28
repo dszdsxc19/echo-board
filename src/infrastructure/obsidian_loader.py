@@ -1,7 +1,12 @@
-import os
 import logging
+import os
 from typing import List
-from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
+
+from langchain_text_splitters import (
+    MarkdownHeaderTextSplitter,
+    RecursiveCharacterTextSplitter,
+)
+
 from src.core.models.domain_models import LifeEvent
 from src.infrastructure.mem0_service import UserProfileService
 from src.infrastructure.vector_store import KnowledgeBase
@@ -18,9 +23,10 @@ class MemoryIngestionEngine:
         self.kb = knowledge_base
         self.mem0 = UserProfileService()
 
-    def process_file(self, file_content: str, source_name: str = "unknown") -> List[LifeEvent]:
+    def process_file(self, file_content: str, source_name: str = "unknown", persist: bool = True) -> List[LifeEvent]:
         """
-        处理单个文件内容 (逻辑保持不变)
+        处理单个文件内容
+        :param persist: 是否立即存入向量数据库。如果为 False，则只返回 LifeEvent 列表，不写入 DB (用于批量处理)。
         """
         logger.info(f"📄 开始处理文件: {source_name} (长度: {len(file_content)} 字符)")
 
@@ -59,14 +65,25 @@ class MemoryIngestionEngine:
 
         # 4. 存入仓库
         if life_events:
-            self.kb.add_events(life_events)
-            logger.info(f"✅ 已保存 {len(life_events)} 个事件到向量数据库")
+            if persist:
+                self.kb.add_events(life_events)
+                logger.info(f"✅ 已保存 {len(life_events)} 个事件到向量数据库")
+            else:
+                logger.info(f"⏳ 已提取 {len(life_events)} 个事件 (等待批量保存)")
         else:
             logger.warning(f"⚠️ 未从文件 {source_name} 中提取到有效内容")
 
         self.mem0.remember(file_content)
-        
+
         return life_events
+
+    def save_events(self, events: List[LifeEvent]):
+        """
+        批量保存事件到向量数据库
+        """
+        if events:
+            self.kb.add_events(events)
+            logger.info(f"💾 [Batch] 批量保存 {len(events)} 个事件到向量数据库")
 
     def ingest_folder(self, folder_path: str, max_files: int = 100):
         """
@@ -112,4 +129,3 @@ class MemoryIngestionEngine:
                         logger.warning(error_msg)
 
         logger.info(f"🎉 [Loader] 批量导入完成，共处理 {processed_count} 个文件。")
-        
