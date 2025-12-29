@@ -1,7 +1,12 @@
-import os
 import logging
+import os
 from typing import List
-from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
+
+from langchain_text_splitters import (
+    MarkdownHeaderTextSplitter,
+    RecursiveCharacterTextSplitter,
+)
+
 from src.core.models.domain_models import LifeEvent
 from src.infrastructure.mem0_service import UserProfileService
 from src.infrastructure.vector_store import KnowledgeBase
@@ -18,9 +23,10 @@ class MemoryIngestionEngine:
         self.kb = knowledge_base
         self.mem0 = UserProfileService()
 
-    def process_file(self, file_content: str, source_name: str = "unknown") -> List[LifeEvent]:
+    def process_file(self, file_content: str, source_name: str = "unknown", persist: bool = True) -> List[LifeEvent]:
         """
         处理单个文件内容 (逻辑保持不变)
+        :param persist: 是否立即存入向量数据库
         """
         logger.info(f"📄 开始处理文件: {source_name} (长度: {len(file_content)} 字符)")
 
@@ -58,15 +64,25 @@ class MemoryIngestionEngine:
             life_events.append(event)
 
         # 4. 存入仓库
-        if life_events:
+        if life_events and persist:
             self.kb.add_events(life_events)
             logger.info(f"✅ 已保存 {len(life_events)} 个事件到向量数据库")
+        elif life_events:
+            logger.info(f"⏳ 已处理 {len(life_events)} 个事件 (等待批量保存)")
         else:
             logger.warning(f"⚠️ 未从文件 {source_name} 中提取到有效内容")
 
         self.mem0.remember(file_content)
-        
+
         return life_events
+
+    def save_events(self, events: List[LifeEvent]):
+        """
+        批量保存事件到向量数据库
+        """
+        if events:
+            self.kb.add_events(events)
+            logger.info(f"✅ 批量保存 {len(events)} 个事件到向量数据库")
 
     def ingest_folder(self, folder_path: str, max_files: int = 100):
         """
@@ -82,6 +98,7 @@ class MemoryIngestionEngine:
             raise ValueError(error_msg)
 
         processed_count = 0
+        all_events = []
 
         # os.walk 递归遍历所有子目录
         for root, dirs, files in os.walk(folder_path):
@@ -91,6 +108,8 @@ class MemoryIngestionEngine:
             for file in files:
                 if processed_count >= max_files:
                     logger.warning(f"🛑 [Loader] 达到最大文件限制 ({max_files})，停止加载。")
+                    if all_events:
+                        self.save_events(all_events)
                     return
 
                 if file.endswith(".md"):
@@ -103,7 +122,10 @@ class MemoryIngestionEngine:
                         relative_path = os.path.relpath(file_path, folder_path)
 
                         # 调用之前的单文件处理逻辑
-                        self.process_file(content, source_name=relative_path)
+                        events = self.process_file(content, source_name=relative_path, persist=False)
+                        if events:
+                            all_events.extend(events)
+
                         processed_count += 1
                         logger.info(f"✅ [{processed_count}] 已处理: {relative_path}")
 
@@ -111,5 +133,7 @@ class MemoryIngestionEngine:
                         error_msg = f"跳过文件 {file}: {e}"
                         logger.warning(error_msg)
 
+        if all_events:
+            self.save_events(all_events)
+
         logger.info(f"🎉 [Loader] 批量导入完成，共处理 {processed_count} 个文件。")
-        
