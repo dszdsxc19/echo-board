@@ -198,6 +198,7 @@ with st.sidebar:
 
                     # 初始化日志列表
                     processed_files = []
+                    all_events = [] # ⚡ Bolt: Accumulate events for batch processing
 
                     for file_path in md_files:
                         try:
@@ -215,8 +216,10 @@ with st.sidebar:
                                 f"({len(content)} 字符)"
                             )
 
-                            # 处理文件
-                            ingestion_engine.process_file(content, source_name=relative_path)
+                            # 处理文件 - ⚡ Bolt: persist=False to defer vector store write
+                            events = ingestion_engine.process_file(content, source_name=relative_path, persist=False)
+                            if events:
+                                all_events.extend(events)
 
                             processed += 1
                             processed_bytes += file_size
@@ -264,6 +267,12 @@ with st.sidebar:
                                 ])
                             )
                             st.warning(error_msg)
+
+                    # ⚡ Bolt: Batch save events
+                    if all_events:
+                        sync_file_text.markdown(f"**正在保存**: {len(all_events)} 个事件到向量数据库 (批量优化)...")
+                        ingestion_engine.save_events(all_events)
+                        sync_file_text.empty()
 
                     # 同步完成
                     total_time = time.time() - start_time
