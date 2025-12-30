@@ -28,6 +28,7 @@ messages = [
     HumanMessage(content="你好")
 ]
 
-# 调用模型
-response = llm.invoke(messages)
-print(response.content)
+if __name__ == "__main__":
+    # 调用模型
+    response = llm.invoke(messages)
+    print(response.content)

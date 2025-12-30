@@ -18,7 +18,7 @@ class MemoryIngestionEngine:
         self.kb = knowledge_base
         self.mem0 = UserProfileService()
 
-    def process_file(self, file_content: str, source_name: str = "unknown") -> List[LifeEvent]:
+    def process_file(self, file_content: str, source_name: str = "unknown", persist: bool = True) -> List[LifeEvent]:
         """
         处理单个文件内容 (逻辑保持不变)
         """
@@ -58,21 +58,23 @@ class MemoryIngestionEngine:
             life_events.append(event)
 
         # 4. 存入仓库
-        if life_events:
-            self.kb.add_events(life_events)
-            logger.info(f"✅ 已保存 {len(life_events)} 个事件到向量数据库")
-        else:
-            logger.warning(f"⚠️ 未从文件 {source_name} 中提取到有效内容")
+        if persist:
+            if life_events:
+                self.kb.add_events(life_events)
+                logger.info(f"✅ 已保存 {len(life_events)} 个事件到向量数据库")
+            else:
+                logger.warning(f"⚠️ 未从文件 {source_name} 中提取到有效内容")
 
-        self.mem0.remember(file_content)
+            self.mem0.remember(file_content)
         
         return life_events
 
-    def ingest_folder(self, folder_path: str, max_files: int = 100):
+    def ingest_folder(self, folder_path: str, max_files: int = 100, batch_size: int = 10):
         """
         [新增功能] 递归扫描文件夹并导入
         :param folder_path: Obsidian 库的根目录路径
         :param max_files: 安全限制，防止一次性读入几千个文件把钱烧光
+        :param batch_size: 批量写入数据库的大小
         """
         logger.info(f"📂 [Loader] 开始扫描目录: {folder_path}")
 
@@ -82,6 +84,7 @@ class MemoryIngestionEngine:
             raise ValueError(error_msg)
 
         processed_count = 0
+        batch_events = []
 
         # os.walk 递归遍历所有子目录
         for root, dirs, files in os.walk(folder_path):
@@ -91,7 +94,7 @@ class MemoryIngestionEngine:
             for file in files:
                 if processed_count >= max_files:
                     logger.warning(f"🛑 [Loader] 达到最大文件限制 ({max_files})，停止加载。")
-                    return
+                    break # Break inner loop, need to return after saving remaining batch
 
                 if file.endswith(".md"):
                     file_path = os.path.join(root, file)
@@ -102,14 +105,33 @@ class MemoryIngestionEngine:
                         # 获取相对路径作为 source_name (例如: "Work/2023-10-10.md")
                         relative_path = os.path.relpath(file_path, folder_path)
 
-                        # 调用之前的单文件处理逻辑
-                        self.process_file(content, source_name=relative_path)
+                        # 调用之前的单文件处理逻辑 (persist=False)
+                        events = self.process_file(content, source_name=relative_path, persist=False)
+                        batch_events.extend(events)
+
+                        # Mem0 still needs to be called per file for now
+                        self.mem0.remember(content)
+
                         processed_count += 1
                         logger.info(f"✅ [{processed_count}] 已处理: {relative_path}")
+
+                        # Batch save
+                        if len(batch_events) >= batch_size:
+                            self.kb.add_events(batch_events)
+                            logger.info(f"💾 批量保存 {len(batch_events)} 个事件到向量数据库")
+                            batch_events = []
 
                     except Exception as e:
                         error_msg = f"跳过文件 {file}: {e}"
                         logger.warning(error_msg)
+
+            if processed_count >= max_files:
+                break
+
+        # Save remaining events
+        if batch_events:
+            self.kb.add_events(batch_events)
+            logger.info(f"💾 批量保存剩余 {len(batch_events)} 个事件到向量数据库")
 
         logger.info(f"🎉 [Loader] 批量导入完成，共处理 {processed_count} 个文件。")
         
