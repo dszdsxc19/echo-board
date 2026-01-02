@@ -1,11 +1,13 @@
 import os
+
 from dotenv import find_dotenv
 from dotenv.main import load_dotenv
 from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
 from langchain_openai import ChatOpenAI
-from mem0 import Memory
 from pydantic import SecretStr
+
+from mem0 import Memory
 
 load_dotenv(find_dotenv())
 
@@ -53,12 +55,15 @@ class UserProfileService:
         self.m = Memory.from_config(config)
         self.user_id = user_id
 
-    def remember(self, text: str):
+    def remember(self, text: str | list[str]):
         """
         [写入路径]: 让系统记住一个新的事实/偏好
         通常在处理日记或对话结束后调用
         """
-        print(f"🧠 [Mem0] Extracting facts from: {text[:30]}...")
+        if isinstance(text, list):
+            print(f"🧠 [Mem0] Extracting facts from batch of {len(text)} items...")
+        else:
+            print(f"🧠 [Mem0] Extracting facts from: {text[:30]}...")
         self.m.add(text, user_id=self.user_id)
 
     def get_profile(self, query: str) -> str:

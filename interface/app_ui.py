@@ -199,6 +199,10 @@ with st.sidebar:
                     # 初始化日志列表
                     processed_files = []
 
+                    # ⚡ Bolt Optimization: Batch process events
+                    all_collected_events = []
+                    all_file_contents = []
+
                     for file_path in md_files:
                         try:
                             # 读取文件内容
@@ -215,8 +219,10 @@ with st.sidebar:
                                 f"({len(content)} 字符)"
                             )
 
-                            # 处理文件
-                            ingestion_engine.process_file(content, source_name=relative_path)
+                            # 处理文件 (不立即持久化)
+                            events = ingestion_engine.process_file(content, source_name=relative_path, persist=False)
+                            all_collected_events.extend(events)
+                            all_file_contents.append(content)
 
                             processed += 1
                             processed_bytes += file_size
@@ -264,6 +270,15 @@ with st.sidebar:
                                 ])
                             )
                             st.warning(error_msg)
+
+                    # 批量保存到向量数据库
+                    if all_collected_events:
+                        sync_file_text.text("⚡ 正在批量保存到数据库...")
+                        ingestion_engine.save_events(all_collected_events)
+
+                    if all_file_contents:
+                        sync_file_text.text("⚡ 正在批量提取记忆到 Mem0...")
+                        ingestion_engine.save_memories(all_file_contents)
 
                     # 同步完成
                     total_time = time.time() - start_time
