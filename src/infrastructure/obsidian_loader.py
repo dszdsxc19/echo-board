@@ -1,7 +1,12 @@
-import os
 import logging
+import os
 from typing import List
-from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
+
+from langchain_text_splitters import (
+    MarkdownHeaderTextSplitter,
+    RecursiveCharacterTextSplitter,
+)
+
 from src.core.models.domain_models import LifeEvent
 from src.infrastructure.mem0_service import UserProfileService
 from src.infrastructure.vector_store import KnowledgeBase
@@ -18,9 +23,12 @@ class MemoryIngestionEngine:
         self.kb = knowledge_base
         self.mem0 = UserProfileService()
 
-    def process_file(self, file_content: str, source_name: str = "unknown") -> List[LifeEvent]:
+    def process_file(self, file_content: str, source_name: str = "unknown", save_to_mem0: bool = True) -> List[LifeEvent]:
         """
         处理单个文件内容 (逻辑保持不变)
+        :param file_content: 文件内容
+        :param source_name: 文件名
+        :param save_to_mem0: 是否保存到 Mem0 (默认 True)
         """
         logger.info(f"📄 开始处理文件: {source_name} (长度: {len(file_content)} 字符)")
 
@@ -64,8 +72,9 @@ class MemoryIngestionEngine:
         else:
             logger.warning(f"⚠️ 未从文件 {source_name} 中提取到有效内容")
 
-        self.mem0.remember(file_content)
-        
+        if save_to_mem0:
+            self.mem0.remember(file_content)
+
         return life_events
 
     def ingest_folder(self, folder_path: str, max_files: int = 100):
@@ -82,6 +91,8 @@ class MemoryIngestionEngine:
             raise ValueError(error_msg)
 
         processed_count = 0
+        memories_to_add = []
+        batch_size = 5  # Batch size for Mem0 to avoid context limits
 
         # os.walk 递归遍历所有子目录
         for root, dirs, files in os.walk(folder_path):
@@ -91,7 +102,7 @@ class MemoryIngestionEngine:
             for file in files:
                 if processed_count >= max_files:
                     logger.warning(f"🛑 [Loader] 达到最大文件限制 ({max_files})，停止加载。")
-                    return
+                    break
 
                 if file.endswith(".md"):
                     file_path = os.path.join(root, file)
@@ -102,14 +113,27 @@ class MemoryIngestionEngine:
                         # 获取相对路径作为 source_name (例如: "Work/2023-10-10.md")
                         relative_path = os.path.relpath(file_path, folder_path)
 
-                        # 调用之前的单文件处理逻辑
-                        self.process_file(content, source_name=relative_path)
+                        # 调用之前的单文件处理逻辑, 但不保存到 Mem0
+                        self.process_file(content, source_name=relative_path, save_to_mem0=False)
+
+                        memories_to_add.append(content)
                         processed_count += 1
                         logger.info(f"✅ [{processed_count}] 已处理: {relative_path}")
+
+                        # Batch process mem0
+                        if len(memories_to_add) >= batch_size:
+                            self.mem0.remember(memories_to_add)
+                            memories_to_add = []
 
                     except Exception as e:
                         error_msg = f"跳过文件 {file}: {e}"
                         logger.warning(error_msg)
 
+            if processed_count >= max_files:
+                 break
+
+        # Process remaining memories
+        if memories_to_add:
+            self.mem0.remember(memories_to_add)
+
         logger.info(f"🎉 [Loader] 批量导入完成，共处理 {processed_count} 个文件。")
-        
