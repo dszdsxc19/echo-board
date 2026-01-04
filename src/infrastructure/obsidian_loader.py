@@ -1,6 +1,7 @@
 import os
 import logging
 from typing import List
+from concurrent.futures import ThreadPoolExecutor
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 from src.core.models.domain_models import LifeEvent
 from src.infrastructure.mem0_service import UserProfileService
@@ -18,30 +19,32 @@ class MemoryIngestionEngine:
         self.kb = knowledge_base
         self.mem0 = UserProfileService()
 
-    def process_file(self, file_content: str, source_name: str = "unknown") -> List[LifeEvent]:
-        """
-        处理单个文件内容 (逻辑保持不变)
-        """
-        logger.info(f"📄 开始处理文件: {source_name} (长度: {len(file_content)} 字符)")
-
         # 1. 结构化切分 (按标题)
         headers_to_split_on = [
             ("#", "Date/Title"),
             ("##", "Section"),
             ("###", "SubSection"),
         ]
-        markdown_splitter = MarkdownHeaderTextSplitter(
+        self.markdown_splitter = MarkdownHeaderTextSplitter(
             headers_to_split_on=headers_to_split_on
         )
-        md_header_splits = markdown_splitter.split_text(file_content)
-        logger.info(f"  └─ 结构化切分完成: {len(md_header_splits)} 个片段")
 
         # 2. 长度切分
-        text_splitter = RecursiveCharacterTextSplitter(
+        self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=500,
             chunk_overlap=50
         )
-        final_splits = text_splitter.split_documents(md_header_splits)
+
+    def process_file(self, file_content: str, source_name: str = "unknown") -> List[LifeEvent]:
+        """
+        处理单个文件内容 (逻辑保持不变)
+        """
+        logger.info(f"📄 开始处理文件: {source_name} (长度: {len(file_content)} 字符)")
+
+        md_header_splits = self.markdown_splitter.split_text(file_content)
+        logger.info(f"  └─ 结构化切分完成: {len(md_header_splits)} 个片段")
+
+        final_splits = self.text_splitter.split_documents(md_header_splits)
         logger.info(f"  └─ 长度切分完成: {len(final_splits)} 个块")
 
         # 3. 转换为 LifeEvent
@@ -57,14 +60,29 @@ class MemoryIngestionEngine:
             )
             life_events.append(event)
 
-        # 4. 存入仓库
-        if life_events:
-            self.kb.add_events(life_events)
-            logger.info(f"✅ 已保存 {len(life_events)} 个事件到向量数据库")
-        else:
-            logger.warning(f"⚠️ 未从文件 {source_name} 中提取到有效内容")
+        # 4. 存入仓库 & 5. 记忆处理 (并发执行)
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            future_kb = None
+            if life_events:
+                future_kb = executor.submit(self.kb.add_events, life_events)
+            else:
+                logger.warning(f"⚠️ 未从文件 {source_name} 中提取到有效内容")
 
-        self.mem0.remember(file_content)
+            # mem0 的处理通常涉及 LLM 调用，较慢
+            future_mem0 = executor.submit(self.mem0.remember, file_content)
+
+            # 等待结果并处理可能的异常
+            if future_kb:
+                try:
+                    future_kb.result()
+                    logger.info(f"✅ 已保存 {len(life_events)} 个事件到向量数据库")
+                except Exception as e:
+                    logger.error(f"❌ 保存到向量数据库失败: {e}")
+
+            try:
+                future_mem0.result()
+            except Exception as e:
+                logger.error(f"❌ Mem0 记忆处理失败: {e}")
         
         return life_events
 
@@ -112,4 +130,3 @@ class MemoryIngestionEngine:
                         logger.warning(error_msg)
 
         logger.info(f"🎉 [Loader] 批量导入完成，共处理 {processed_count} 个文件。")
-        
