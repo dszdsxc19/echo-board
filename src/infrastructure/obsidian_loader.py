@@ -13,10 +13,26 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+import concurrent.futures
+
 class MemoryIngestionEngine:
     def __init__(self, knowledge_base: KnowledgeBase):
         self.kb = knowledge_base
         self.mem0 = UserProfileService()
+
+        # Initialize splitters once
+        headers_to_split_on = [
+            ("#", "Date/Title"),
+            ("##", "Section"),
+            ("###", "SubSection"),
+        ]
+        self.markdown_splitter = MarkdownHeaderTextSplitter(
+            headers_to_split_on=headers_to_split_on
+        )
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=500,
+            chunk_overlap=50
+        )
 
     def process_file(self, file_content: str, source_name: str = "unknown") -> List[LifeEvent]:
         """
@@ -25,23 +41,11 @@ class MemoryIngestionEngine:
         logger.info(f"📄 开始处理文件: {source_name} (长度: {len(file_content)} 字符)")
 
         # 1. 结构化切分 (按标题)
-        headers_to_split_on = [
-            ("#", "Date/Title"),
-            ("##", "Section"),
-            ("###", "SubSection"),
-        ]
-        markdown_splitter = MarkdownHeaderTextSplitter(
-            headers_to_split_on=headers_to_split_on
-        )
-        md_header_splits = markdown_splitter.split_text(file_content)
+        md_header_splits = self.markdown_splitter.split_text(file_content)
         logger.info(f"  └─ 结构化切分完成: {len(md_header_splits)} 个片段")
 
         # 2. 长度切分
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=500,
-            chunk_overlap=50
-        )
-        final_splits = text_splitter.split_documents(md_header_splits)
+        final_splits = self.text_splitter.split_documents(md_header_splits)
         logger.info(f"  └─ 长度切分完成: {len(final_splits)} 个块")
 
         # 3. 转换为 LifeEvent
@@ -57,16 +61,31 @@ class MemoryIngestionEngine:
             )
             life_events.append(event)
 
-        # 4. 存入仓库
-        if life_events:
-            self.kb.add_events(life_events)
-            logger.info(f"✅ 已保存 {len(life_events)} 个事件到向量数据库")
-        else:
-            logger.warning(f"⚠️ 未从文件 {source_name} 中提取到有效内容")
+        # 4. 存入仓库 & 5. 记忆提取 (Parallelized)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            futures = []
 
-        self.mem0.remember(file_content)
+            # Submit KB storage task
+            if life_events:
+                futures.append(executor.submit(self._save_to_kb, life_events))
+            else:
+                logger.warning(f"⚠️ 未从文件 {source_name} 中提取到有效内容")
+
+            # Submit Mem0 task
+            futures.append(executor.submit(self.mem0.remember, file_content))
+
+            # Wait for all tasks to complete
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    logger.error(f"Error in parallel processing for {source_name}: {e}")
         
         return life_events
+
+    def _save_to_kb(self, life_events: List[LifeEvent]):
+        self.kb.add_events(life_events)
+        logger.info(f"✅ 已保存 {len(life_events)} 个事件到向量数据库")
 
     def ingest_folder(self, folder_path: str, max_files: int = 100):
         """
