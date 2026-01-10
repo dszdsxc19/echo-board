@@ -18,6 +18,20 @@ class MemoryIngestionEngine:
         self.kb = knowledge_base
         self.mem0 = UserProfileService()
 
+        # Initialize splitters once
+        headers_to_split_on = [
+            ("#", "Date/Title"),
+            ("##", "Section"),
+            ("###", "SubSection"),
+        ]
+        self.markdown_splitter = MarkdownHeaderTextSplitter(
+            headers_to_split_on=headers_to_split_on
+        )
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=500,
+            chunk_overlap=50
+        )
+
     def process_file(self, file_content: str, source_name: str = "unknown") -> List[LifeEvent]:
         """
         处理单个文件内容 (逻辑保持不变)
@@ -25,23 +39,11 @@ class MemoryIngestionEngine:
         logger.info(f"📄 开始处理文件: {source_name} (长度: {len(file_content)} 字符)")
 
         # 1. 结构化切分 (按标题)
-        headers_to_split_on = [
-            ("#", "Date/Title"),
-            ("##", "Section"),
-            ("###", "SubSection"),
-        ]
-        markdown_splitter = MarkdownHeaderTextSplitter(
-            headers_to_split_on=headers_to_split_on
-        )
-        md_header_splits = markdown_splitter.split_text(file_content)
+        md_header_splits = self.markdown_splitter.split_text(file_content)
         logger.info(f"  └─ 结构化切分完成: {len(md_header_splits)} 个片段")
 
         # 2. 长度切分
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=500,
-            chunk_overlap=50
-        )
-        final_splits = text_splitter.split_documents(md_header_splits)
+        final_splits = self.text_splitter.split_documents(md_header_splits)
         logger.info(f"  └─ 长度切分完成: {len(final_splits)} 个块")
 
         # 3. 转换为 LifeEvent
@@ -112,4 +114,3 @@ class MemoryIngestionEngine:
                         logger.warning(error_msg)
 
         logger.info(f"🎉 [Loader] 批量导入完成，共处理 {processed_count} 个文件。")
-        
