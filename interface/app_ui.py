@@ -205,7 +205,7 @@ with st.sidebar:
                             with open(file_path, "r", encoding="utf-8") as f:
                                 content = f.read()
 
-                            file_size = len(content.encode('utf-8')) # Approximate byte size for progress
+                            file_size = os.path.getsize(file_path) # ⚡ Bolt Optimization: Use os.path.getsize instead of re-encoding
 
                             relative_path = os.path.relpath(file_path, folder_path)
 

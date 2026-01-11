@@ -1,7 +1,13 @@
-import os
+import concurrent.futures
 import logging
+import os
 from typing import List
-from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
+
+from langchain_text_splitters import (
+    MarkdownHeaderTextSplitter,
+    RecursiveCharacterTextSplitter,
+)
+
 from src.core.models.domain_models import LifeEvent
 from src.infrastructure.mem0_service import UserProfileService
 from src.infrastructure.vector_store import KnowledgeBase
@@ -58,14 +64,31 @@ class MemoryIngestionEngine:
             life_events.append(event)
 
         # 4. 存入仓库
+        # ⚡ Bolt Optimization: Parallelize KB ingestion and Mem0 extraction
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            futures = []
+
+            # Task 1: Vector Store
+            if life_events:
+                futures.append(executor.submit(self.kb.add_events, life_events))
+
+            # Task 2: Mem0 Profile
+            futures.append(executor.submit(self.mem0.remember, file_content))
+
+            # Wait for all tasks to complete
+            concurrent.futures.wait(futures)
+
+            # Log results (handle exceptions if needed)
+            for future in futures:
+                # Re-raise exceptions to ensure the caller knows something went wrong
+                # This prevents silent failures where we claim success but DB write failed
+                future.result()
+
         if life_events:
-            self.kb.add_events(life_events)
             logger.info(f"✅ 已保存 {len(life_events)} 个事件到向量数据库")
         else:
             logger.warning(f"⚠️ 未从文件 {source_name} 中提取到有效内容")
 
-        self.mem0.remember(file_content)
-        
         return life_events
 
     def ingest_folder(self, folder_path: str, max_files: int = 100):
@@ -112,4 +135,3 @@ class MemoryIngestionEngine:
                         logger.warning(error_msg)
 
         logger.info(f"🎉 [Loader] 批量导入完成，共处理 {processed_count} 个文件。")
-        
