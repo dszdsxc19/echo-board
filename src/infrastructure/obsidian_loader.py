@@ -1,7 +1,13 @@
-import os
+import concurrent.futures
 import logging
+import os
 from typing import List
-from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
+
+from langchain_text_splitters import (
+    MarkdownHeaderTextSplitter,
+    RecursiveCharacterTextSplitter,
+)
+
 from src.core.models.domain_models import LifeEvent
 from src.infrastructure.mem0_service import UserProfileService
 from src.infrastructure.vector_store import KnowledgeBase
@@ -58,14 +64,25 @@ class MemoryIngestionEngine:
             life_events.append(event)
 
         # 4. 存入仓库
-        if life_events:
-            self.kb.add_events(life_events)
-            logger.info(f"✅ 已保存 {len(life_events)} 个事件到向量数据库")
-        else:
-            logger.warning(f"⚠️ 未从文件 {source_name} 中提取到有效内容")
+        def save_to_kb():
+            if life_events:
+                self.kb.add_events(life_events)
+                logger.info(f"✅ 已保存 {len(life_events)} 个事件到向量数据库")
+            else:
+                logger.warning(f"⚠️ 未从文件 {source_name} 中提取到有效内容")
 
-        self.mem0.remember(file_content)
-        
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future_kb = executor.submit(save_to_kb)
+            future_mem0 = executor.submit(self.mem0.remember, file_content)
+
+            # Wait for results to propagate exceptions
+            try:
+                future_kb.result()
+                future_mem0.result()
+            except Exception as e:
+                logger.error(f"Error during parallel processing: {e}")
+                raise e
+
         return life_events
 
     def ingest_folder(self, folder_path: str, max_files: int = 100):
@@ -112,4 +129,3 @@ class MemoryIngestionEngine:
                         logger.warning(error_msg)
 
         logger.info(f"🎉 [Loader] 批量导入完成，共处理 {processed_count} 个文件。")
-        
