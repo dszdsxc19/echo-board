@@ -1,7 +1,13 @@
-import os
+import hashlib
 import logging
+import os
 from typing import List
-from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
+
+from langchain_text_splitters import (
+    MarkdownHeaderTextSplitter,
+    RecursiveCharacterTextSplitter,
+)
+
 from src.core.models.domain_models import LifeEvent
 from src.infrastructure.mem0_service import UserProfileService
 from src.infrastructure.vector_store import KnowledgeBase
@@ -46,8 +52,13 @@ class MemoryIngestionEngine:
 
         # 3. 转换为 LifeEvent
         life_events = []
-        for doc in final_splits:
+        for i, doc in enumerate(final_splits):
+            # Generate deterministic ID based on content, source and index to prevent duplication
+            unique_key = f"{source_name}:{i}:{doc.page_content}"
+            event_id = hashlib.md5(unique_key.encode('utf-8')).hexdigest()
+
             event = LifeEvent(
+                id=event_id,
                 content=doc.page_content,
                 source_type="obsidian",
                 metadata={
@@ -65,7 +76,7 @@ class MemoryIngestionEngine:
             logger.warning(f"⚠️ 未从文件 {source_name} 中提取到有效内容")
 
         self.mem0.remember(file_content)
-        
+
         return life_events
 
     def ingest_folder(self, folder_path: str, max_files: int = 100):
@@ -112,4 +123,3 @@ class MemoryIngestionEngine:
                         logger.warning(error_msg)
 
         logger.info(f"🎉 [Loader] 批量导入完成，共处理 {processed_count} 个文件。")
-        
