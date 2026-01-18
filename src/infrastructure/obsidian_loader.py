@@ -1,7 +1,13 @@
-import os
+import concurrent.futures
 import logging
+import os
 from typing import List
-from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
+
+from langchain_text_splitters import (
+    MarkdownHeaderTextSplitter,
+    RecursiveCharacterTextSplitter,
+)
+
 from src.core.models.domain_models import LifeEvent
 from src.infrastructure.mem0_service import UserProfileService
 from src.infrastructure.vector_store import KnowledgeBase
@@ -58,14 +64,28 @@ class MemoryIngestionEngine:
             life_events.append(event)
 
         # 4. 存入仓库
-        if life_events:
-            self.kb.add_events(life_events)
-            logger.info(f"✅ 已保存 {len(life_events)} 个事件到向量数据库")
-        else:
-            logger.warning(f"⚠️ 未从文件 {source_name} 中提取到有效内容")
+        # ⚡ Bolt Optimization: Run KB storage and Mem0 extraction in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            futures = []
 
-        self.mem0.remember(file_content)
-        
+            if life_events:
+                futures.append(executor.submit(self.kb.add_events, life_events))
+            else:
+                logger.warning(f"⚠️ 未从文件 {source_name} 中提取到有效内容")
+
+            futures.append(executor.submit(self.mem0.remember, file_content))
+
+            # Wait for completion and check for errors
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    logger.error(f"❌ Error during parallel ingestion: {e}")
+                    raise e
+
+        if life_events:
+            logger.info(f"✅ 已保存 {len(life_events)} 个事件到向量数据库")
+
         return life_events
 
     def ingest_folder(self, folder_path: str, max_files: int = 100):
@@ -112,4 +132,3 @@ class MemoryIngestionEngine:
                         logger.warning(error_msg)
 
         logger.info(f"🎉 [Loader] 批量导入完成，共处理 {processed_count} 个文件。")
-        
