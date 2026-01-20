@@ -3,10 +3,11 @@
 """
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import tool
+from langchain_openai import ChatOpenAI
+
 
 # 创建一个简单的工具用于 agent
 @tool

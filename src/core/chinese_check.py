@@ -1,8 +1,8 @@
 """Simplified Chinese language compliance checking for Echo-Board."""
 
 import re
-from typing import List, Dict, Tuple
 from pathlib import Path
+from typing import Dict, List, Tuple
 
 from .logging import EchoBoardLogger
 

@@ -1,17 +1,19 @@
 """LangGraph workflow orchestration for three-agent system."""
 
-from typing import TypedDict, List, Dict, Any, Optional
-from langgraph.graph import StateGraph, END
-import time
 import sys
+import time
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from langgraph.graph import END, StateGraph
 
 # Add parent directory to path to allow imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.core.state import AgentState
-from src.core.models.context import ContextDocument
 from src.agents.nodes import create_agent_nodes
+
+from src.core.models.context import ContextDocument
+from src.core.state import AgentState
 
 
 class AgentWorkflow:

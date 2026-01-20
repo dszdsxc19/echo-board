@@ -1,17 +1,19 @@
 # agents/archivist.py
-from typing import List, Dict
-import json
-from langchain_core.prompts import ChatPromptTemplate
+from typing import Dict, List
+
 from langchain_core.output_parsers import StrOutputParser
-from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
 
 # 引入我们刚才定义的 Prompt 和下层设施
 from src.agents.prompts.archivist_prompts import ARCHIVIST_SYSTEM_PROMPT
+
 # 假设你在 infra 中已经封装好了 KnowledgeBase，如果没有，暂时用 Mock
 from src.core.models.domain_models import LifeEvent
-from src.infrastructure.vector_store import KnowledgeBase 
 from src.infrastructure.llm_factory import llm
 from src.infrastructure.obsidian_loader import MemoryIngestionEngine
+from src.infrastructure.vector_store import KnowledgeBase
+
+
 class Archivist:
     def __init__(self, kb: KnowledgeBase):
         """
@@ -19,7 +21,7 @@ class Archivist:
         """
         self.kb = kb
         self.llm = llm
-        
+
         # 组装 Chain
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", ARCHIVIST_SYSTEM_PROMPT),
@@ -37,7 +39,7 @@ class Archivist:
             date = doc.metadata.get("Date/Title", "Unknown Date")
             section = doc.metadata.get("Section", "General")
             content = doc.content.replace("\n", " ")
-            
+
             formatted_str += f"Record #{i+1} [Source: {date} > {section}]:\nContent: {content}\n\n"
         return formatted_str
 
@@ -46,12 +48,12 @@ class Archivist:
         史官的核心工作流：检索 -> 阅读 -> 汇报
         """
         print(f"🕵️ [史官] 正在检索档案库: '{query}'...")
-        
+
         # 1. 检索 (Retrieval)
         # 这里调用我们在 infrastructure 层封装好的 search 方法
         # 假设返回的是 LangChain 的 Document 对象列表
         raw_docs = self.kb.search(query, k=k)
-        
+
         if not raw_docs:
             return {
                 "answer": "报告：档案库中未发现与此相关的记录。",
@@ -60,7 +62,7 @@ class Archivist:
 
         # 2. 格式化上下文 (Context Assembly)
         context_str = self._format_context(raw_docs)
-        
+
         # 3. 生成摘要 (Synthesis)
         print("🕵️ [史官] 正在根据证据撰写报告...")
         response_text = self.chain.invoke({
@@ -129,25 +131,25 @@ def main():
     # 1. 初始化底层存储 (The Warehouse)
     # reset_db=True 会清空之前的测试数据，方便调试
     kb = KnowledgeBase(persist_dir="./data/chroma_db", reset_db=False)
-    
+
     # 2. 初始化加工引擎 (The Worker)
     # 把仓库交给搬运工
     engine = MemoryIngestionEngine(knowledge_base=kb)
-    
+
     # 3. 执行数据注入 (Write Path)
     engine.process_file(MOCK_DATA, source_name="mock_test.md")
-    
+
     # 4. 初始化史官 (Reader Agent)
     # 史官只需要仓库的钥匙 (kb)，不需要知道加工引擎的存在
     archivist = Archivist(kb=kb)
-    
+
     # 5. 执行查询 (Read Path)
     print("\n--- 史官开始工作 ---")
     result = archivist.consult("2023-10-18 我心情很不好？")
-    
+
     print("\n[史官回复]:")
     print(result["answer"])
-    
+
 if __name__ == "__main__":
     main()
 

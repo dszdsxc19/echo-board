@@ -1,13 +1,10 @@
-import os
-from langchain_core.messages import HumanMessage, SystemMessage
-from dotenv import find_dotenv, load_dotenv
-from langchain_openai import ChatOpenAI
-from pydantic import SecretStr
+
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
 
 from src.agents.board_members import BaseBoardMember
 from src.agents.prompts.coach_prompts import COACH_SYSTEM_PROMPT
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
+
 
 class Coach(BaseBoardMember):
     """

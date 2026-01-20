@@ -1,11 +1,13 @@
 import os
+
 from dotenv import find_dotenv
 from dotenv.main import load_dotenv
 from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
 from langchain_openai import ChatOpenAI
-from mem0 import Memory
 from pydantic import SecretStr
+
+from mem0 import Memory
 
 load_dotenv(find_dotenv())
 

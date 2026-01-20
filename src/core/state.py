@@ -1,9 +1,9 @@
 """LangGraph state definitions for agent workflow."""
 
-from typing import List, Optional, Dict, Any
-from typing_extensions import TypedDict
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
+from typing_extensions import TypedDict
 
 
 class AgentState(TypedDict):
