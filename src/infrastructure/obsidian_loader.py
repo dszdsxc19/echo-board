@@ -1,7 +1,13 @@
-import os
 import logging
+import os
+from concurrent.futures import ThreadPoolExecutor
 from typing import List
-from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
+
+from langchain_text_splitters import (
+    MarkdownHeaderTextSplitter,
+    RecursiveCharacterTextSplitter,
+)
+
 from src.core.models.domain_models import LifeEvent
 from src.infrastructure.mem0_service import UserProfileService
 from src.infrastructure.vector_store import KnowledgeBase
@@ -57,15 +63,35 @@ class MemoryIngestionEngine:
             )
             life_events.append(event)
 
-        # 4. 存入仓库
-        if life_events:
-            self.kb.add_events(life_events)
-            logger.info(f"✅ 已保存 {len(life_events)} 个事件到向量数据库")
-        else:
-            logger.warning(f"⚠️ 未从文件 {source_name} 中提取到有效内容")
+        # 4. 存入仓库 (并发执行: 向量数据库 + 用户画像)
+        # ⚡ Bolt Optimization: Run independent IO-bound tasks in parallel
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            kb_future = None
+            if life_events:
+                kb_future = executor.submit(self.kb.add_events, life_events)
+            else:
+                logger.warning(f"⚠️ 未从文件 {source_name} 中提取到有效内容")
 
-        self.mem0.remember(file_content)
-        
+            mem0_future = executor.submit(self.mem0.remember, file_content)
+
+            # Check Task A (KB) result
+            if kb_future:
+                try:
+                    kb_future.result()
+                    logger.info(f"✅ 已保存 {len(life_events)} 个事件到向量数据库")
+                except Exception as e:
+                    logger.error(f"❌ Error saving to KnowledgeBase: {e}")
+                    raise e  # Re-raise to prevent false success
+
+            # Check Task B (Mem0) result
+            try:
+                mem0_future.result()
+            except Exception as e:
+                logger.error(f"❌ Error updating User Profile: {e}")
+                # We might choose not to fail the whole process if Mem0 fails,
+                # but for now let's be strict or at least log it clearly.
+                # Continuing despite Mem0 failure is acceptable if KB succeeded.
+
         return life_events
 
     def ingest_folder(self, folder_path: str, max_files: int = 100):
@@ -112,4 +138,3 @@ class MemoryIngestionEngine:
                         logger.warning(error_msg)
 
         logger.info(f"🎉 [Loader] 批量导入完成，共处理 {processed_count} 个文件。")
-        

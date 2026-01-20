@@ -5,12 +5,13 @@ from typing import Annotated, Callable, List, Optional, TypedDict
 from langgraph.graph import END, StateGraph
 
 from src.agents.archivist import Archivist
+from src.agents.cfo import CFO
 from src.agents.coach import Coach
+from src.agents.router import Router
 from src.agents.strategist import Strategist
 from src.agents.synthesizer import Synthesizer
-from src.agents.cfo import CFO
-from src.agents.router import Router
 from src.infrastructure.mem0_service import UserProfileService
+
 
 # 定义整个辩论过程中的状态数据
 class BoardState(TypedDict):

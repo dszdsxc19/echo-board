@@ -1,12 +1,14 @@
 # infrastructure/vector_store.py
-import shutil
 import os
+import shutil
 from typing import List
+
 from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
-from langchain_openai import OpenAIEmbeddings
+
 # ⬇️ 引入我们的核心模型
 from src.core.models.domain_models import LifeEvent
+
 
 class KnowledgeBase:
     def __init__(self, persist_dir: str = "./data/chroma_db", reset_db: bool = False):
@@ -27,14 +29,14 @@ class KnowledgeBase:
         """
         if not events:
             return
-        
+
         # 转换: LifeEvent -> LangChain Document
         docs = [event.to_langchain_document() for event in events]
-        
+
         # 存入 Chroma (使用 LifeEvent 的 UUID 作为数据库 ID)
         ids = [event.id for event in events]
         self.vector_db.add_documents(documents=docs, ids=ids)
-        
+
         print(f"💾 [KnowledgeBase] 已存入 {len(events)} 个 LifeEvent 对象。")
 
     def search(self, query: str, k: int = 5) -> List[LifeEvent]:
@@ -42,6 +44,6 @@ class KnowledgeBase:
         [变更]: 返回 LifeEvent 列表，而不是 Document
         """
         raw_docs = self.vector_db.similarity_search(query, k=k)
-        
+
         # 转换: LangChain Document -> LifeEvent
         return [LifeEvent.from_langchain_document(doc) for doc in raw_docs]

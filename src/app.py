@@ -1,27 +1,23 @@
 """Streamlit UI for Echo-Board Personal Board of Directors."""
 
-import streamlit as st
 import os
-from pathlib import Path
-from typing import List, Dict, Any, Optional
-import time
-import uuid
 
 # Import core modules
 import sys
+import time
 from pathlib import Path
+from typing import List, Optional
+
+import streamlit as st
 
 # Add parent directory to path to allow imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from src.agents.graph import AgentWorkflow
 from src.core.config import settings
-from src.core.models.note import Note, NoteChunk
-from src.core.models.context import ContextDocument
+from src.data.conversation_store import ConversationStore
 from src.data.loader import NoteLoader
 from src.data.vector_store import VectorStore
-from src.data.database import DatabaseManager
-from src.data.conversation_store import ConversationStore
-from src.agents.graph import AgentWorkflow
 
 
 def initialize_session_state():
@@ -124,7 +120,7 @@ def setup_sidebar():
                     with st.spinner("正在重新加载和索引所有笔记..."):
                         try:
                             load_notes(notes_dir, force_reindex=True)
-                            st.success(f"✅ 成功重新索引！")
+                            st.success("✅ 成功重新索引！")
                             st.rerun()
                         except Exception as e:
                             st.error(f"❌ 重新索引失败: {str(e)}")
@@ -473,14 +469,14 @@ def process_query(user_query: str) -> str:
     # )
 
     # For MVP, return simulated response with context awareness
-    response = f"""
+    response = """
 **【档案管理员】**
 根据您的问题，我正在从您的笔记中寻找相关信息...
 
 """
 
     if conversation_history:
-        response += f"*基于您的对话历史，我了解到之前的相关背景...*\n\n"
+        response += "*基于您的对话历史，我了解到之前的相关背景...*\n\n"
 
     response += """
 **【战略顾问】**
