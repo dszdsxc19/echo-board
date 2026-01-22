@@ -14,6 +14,41 @@ from src.agents.orchestrator import BoardOrchestrator
 from src.infrastructure.obsidian_loader import MemoryIngestionEngine
 from src.infrastructure.vector_store import KnowledgeBase
 
+
+# ⚡ Bolt Optimization: Helper function for parallel file processing
+def process_single_file(file_path: str, folder_path: str, ingestion_engine):
+    """
+    Helper function to process a single file.
+    Designed to be used in a ThreadPoolExecutor.
+    """
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        file_size = len(content.encode('utf-8'))
+        content_len = len(content)
+        relative_path = os.path.relpath(file_path, folder_path)
+
+        # Process file
+        ingestion_engine.process_file(content, source_name=relative_path)
+
+        return {
+            "file": relative_path,
+            "chars": content_len,
+            "bytes": file_size,
+            "status": "✅",
+            "error": None
+        }
+    except Exception as e:
+        relative_path = os.path.relpath(file_path, folder_path)
+        return {
+            "file": relative_path,
+            "chars": 0,
+            "bytes": 0,
+            "status": "❌",
+            "error": str(e)
+        }
+
 # ==========================================
 # 1. 配置页面
 # ==========================================
@@ -199,71 +234,82 @@ with st.sidebar:
                     # 初始化日志列表
                     processed_files = []
 
-                    for file_path in md_files:
-                        try:
-                            # 读取文件内容
-                            with open(file_path, "r", encoding="utf-8") as f:
-                                content = f.read()
+                    # ⚡ Bolt Optimization: Parallelize file processing
+                    # Using ThreadPoolExecutor to handle IO-bound tasks (LLM API calls) concurrently.
+                    from concurrent.futures import ThreadPoolExecutor, as_completed
 
-                            file_size = len(content.encode('utf-8')) # Approximate byte size for progress
+                    with ThreadPoolExecutor(max_workers=4) as executor:
+                        # Submit all tasks
+                        future_to_file = {
+                            executor.submit(process_single_file, file_path, folder_path, ingestion_engine): file_path
+                            for file_path in md_files
+                        }
 
+                        # Process results as they complete
+                        for future in as_completed(future_to_file):
+                            file_path = future_to_file[future]
                             relative_path = os.path.relpath(file_path, folder_path)
 
-                            # 更新当前文件显示
-                            sync_file_text.markdown(
-                                f"**正在处理**: {relative_path} "
-                                f"({len(content)} 字符)"
-                            )
+                            try:
+                                result = future.result()
 
-                            # 处理文件
-                            ingestion_engine.process_file(content, source_name=relative_path)
+                                # Update stats
+                                if result['status'] == "✅":
+                                    processed += 1
+                                    processed_bytes += result['bytes']
+                                    total_content_length += result['chars']
 
-                            processed += 1
-                            processed_bytes += file_size
-                            total_content_length += len(content)
+                                    processed_files.append({
+                                        "file": result['file'],
+                                        "chars": result['chars'],
+                                        "status": "✅"
+                                    })
+                                else:
+                                    # Handle failure reported by worker
+                                    processed_files.append({
+                                        "file": result['file'],
+                                        "error": result.get('error', 'Unknown Error'),
+                                        "status": "❌"
+                                    })
 
-                            # 记录已处理的文件
-                            processed_files.append({
-                                "file": relative_path,
-                                "chars": len(content),
-                                "status": "✅"
-                            })
+                                # Update UI (Progress)
+                                # Update current file display (showing last finished)
+                                sync_file_text.markdown(
+                                    f"**处理完成**: {relative_path} "
+                                    f"({result.get('chars', 0)} 字符)"
+                                )
 
-                            # 更新日志显示
-                            log_text = "**已处理的文件:**\n\n"
-                            for item in processed_files[-10:]:  # 只显示最近10个
-                                log_text += f"- {item['status']} {item['file']} ({item['chars']} 字符)\n"
-                            log_container.markdown(log_text)
+                                # Update log
+                                log_text = "**已处理的文件:**\n\n"
+                                for item in processed_files[-10:]:
+                                    log_text += f"- {item['status']} {item['file']} ({item.get('chars', 0)} 字符)\n"
+                                log_container.markdown(log_text)
 
-                            # 更新进度
-                            if total_size_bytes > 0:
-                                progress_percent = min((processed_bytes / total_size_bytes) * 100, 100)
-                            else:
-                                progress_percent = 100
+                                # Update progress bar
+                                if total_size_bytes > 0:
+                                    # Note: processed_bytes might not be accurate if file reading failed,
+                                    # but for progress bar using total_files is often smoother if sizes vary wildly.
+                                    # Let's stick to bytes as per original logic.
+                                    progress_percent = min((processed_bytes / total_size_bytes) * 100, 100)
+                                else:
+                                    progress_percent = 100
 
-                            sync_progress.progress(int(progress_percent))
-                            sync_text.text(
-                                f"进度: {processed}/{total_files} 文件 | "
-                                f"{processed_bytes}/{total_size_bytes} Bytes "
-                                f"({progress_percent:.1f}%)"
-                            )
+                                sync_progress.progress(int(progress_percent))
+                                sync_text.text(
+                                    f"进度: {processed}/{total_files} 文件 | "
+                                    f"{processed_bytes}/{total_size_bytes} Bytes "
+                                    f"({progress_percent:.1f}%)"
+                                )
 
-                        except Exception as e:
-                            error_msg = f"跳过文件 {file_path}: {e}"
-                            processed_files.append({
-                                "file": relative_path,
-                                "error": str(e),
-                                "status": "❌"
-                            })
-                            log_container.markdown(
-                                f"**❌ 错误**: {error_msg}\n\n"
-                                f"**已处理的文件** ({len(processed_files)} 个):\n"
-                                + "\n".join([
-                                    f"- {item['status']} {item['file']} ({item.get('chars', 'N/A')} 字符)"
-                                    for item in processed_files[-10:]
-                                ])
-                            )
-                            st.warning(error_msg)
+                            except Exception as e:
+                                # Exception raised by future.result() itself (e.g. cancelled)
+                                error_msg = f"处理文件时发生意外错误 {file_path}: {e}"
+                                processed_files.append({
+                                    "file": relative_path,
+                                    "error": str(e),
+                                    "status": "❌"
+                                })
+                                st.warning(error_msg)
 
                     # 同步完成
                     total_time = time.time() - start_time
