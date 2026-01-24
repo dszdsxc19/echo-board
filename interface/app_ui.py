@@ -13,6 +13,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.agents.orchestrator import BoardOrchestrator
 from src.infrastructure.obsidian_loader import MemoryIngestionEngine
 from src.infrastructure.vector_store import KnowledgeBase
+from src.utils.ingestion_helper import process_single_file
 
 # ==========================================
 # 1. 配置页面
@@ -191,55 +192,76 @@ with st.sidebar:
                         sync_status.update(label="⚠️ 未找到 Markdown 文件", state="warning")
                         st.stop()
 
-                    # 逐步处理文件
+                    # 逐步处理文件 (并行) - ⚡ Bolt Optimization: Use ThreadPoolExecutor
+                    import concurrent.futures
+
                     processed = 0
                     processed_bytes = 0
-                    total_content_length = 0 # Track this for final stats
+                    total_content_length = 0  # Track this for final stats
 
                     # 初始化日志列表
                     processed_files = []
 
-                    for file_path in md_files:
-                        try:
-                            # 读取文件内容
-                            with open(file_path, "r", encoding="utf-8") as f:
-                                content = f.read()
+                    # 提交任务
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+                        future_to_file = {
+                            executor.submit(process_single_file, fp, folder_path, ingestion_engine): fp
+                            for fp in md_files
+                        }
 
-                            file_size = len(content.encode('utf-8')) # Approximate byte size for progress
+                        # 处理结果 (Iterate as they complete to update UI)
+                        for future in concurrent.futures.as_completed(future_to_file):
+                            file_path = future_to_file[future]
+                            try:
+                                result = future.result()
 
-                            relative_path = os.path.relpath(file_path, folder_path)
+                                if result["status"] == "success":
+                                    processed += 1
+                                    processed_bytes += result["bytes"]
+                                    total_content_length += result["chars"]
 
-                            # 更新当前文件显示
-                            sync_file_text.markdown(
-                                f"**正在处理**: {relative_path} "
-                                f"({len(content)} 字符)"
-                            )
+                                    processed_files.append({
+                                        "file": result["file"],
+                                        "chars": result["chars"],
+                                        "status": "✅"
+                                    })
 
-                            # 处理文件
-                            ingestion_engine.process_file(content, source_name=relative_path)
+                                    # 更新 UI: 成功
+                                    sync_file_text.markdown(f"**已处理**: {result['file']}")
+                                else:
+                                    # 错误处理
+                                    error_msg = result["error"]
+                                    processed_files.append({
+                                        "file": result["file"],
+                                        "error": error_msg,
+                                        "status": "❌"
+                                    })
+                                    st.warning(f"跳过文件 {result['file']}: {error_msg}")
 
-                            processed += 1
-                            processed_bytes += file_size
-                            total_content_length += len(content)
+                            except Exception as e:
+                                # 线程执行异常
+                                relative_path = os.path.relpath(file_path, folder_path)
+                                error_msg = f"System error processing {relative_path}: {e}"
+                                processed_files.append({
+                                    "file": relative_path,
+                                    "error": str(e),
+                                    "status": "❌"
+                                })
+                                st.error(error_msg)
 
-                            # 记录已处理的文件
-                            processed_files.append({
-                                "file": relative_path,
-                                "chars": len(content),
-                                "status": "✅"
-                            })
-
+                            # --- 更新 UI (Progress & Logs) ---
                             # 更新日志显示
                             log_text = "**已处理的文件:**\n\n"
                             for item in processed_files[-10:]:  # 只显示最近10个
-                                log_text += f"- {item['status']} {item['file']} ({item['chars']} 字符)\n"
+                                log_text += f"- {item['status']} {item['file']} ({item.get('chars', 'N/A')} 字符)\n"
                             log_container.markdown(log_text)
 
-                            # 更新进度
+                            # 更新进度条
                             if total_size_bytes > 0:
                                 progress_percent = min((processed_bytes / total_size_bytes) * 100, 100)
                             else:
-                                progress_percent = 100
+                                # 如果总大小未知（0），则用文件数量作为进度
+                                progress_percent = min((processed / total_files) * 100, 100) if total_files > 0 else 100
 
                             sync_progress.progress(int(progress_percent))
                             sync_text.text(
@@ -247,23 +269,6 @@ with st.sidebar:
                                 f"{processed_bytes}/{total_size_bytes} Bytes "
                                 f"({progress_percent:.1f}%)"
                             )
-
-                        except Exception as e:
-                            error_msg = f"跳过文件 {file_path}: {e}"
-                            processed_files.append({
-                                "file": relative_path,
-                                "error": str(e),
-                                "status": "❌"
-                            })
-                            log_container.markdown(
-                                f"**❌ 错误**: {error_msg}\n\n"
-                                f"**已处理的文件** ({len(processed_files)} 个):\n"
-                                + "\n".join([
-                                    f"- {item['status']} {item['file']} ({item.get('chars', 'N/A')} 字符)"
-                                    for item in processed_files[-10:]
-                                ])
-                            )
-                            st.warning(error_msg)
 
                     # 同步完成
                     total_time = time.time() - start_time
