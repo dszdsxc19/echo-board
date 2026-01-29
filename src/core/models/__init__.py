@@ -1,8 +1,8 @@
 """Data models for Echo-Board application."""
 
-from .note import Note, NoteChunk
-from .conversation import ConversationSession, AgentResponse, UserQuery
 from .context import ContextDocument
+from .conversation import AgentResponse, ConversationSession, UserQuery
+from .note import Note, NoteChunk
 
 __all__ = [
     "Note",

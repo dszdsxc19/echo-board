@@ -1,9 +1,11 @@
 # core/domain_models.py
 import uuid
-from typing import Dict, Any, Optional
 from datetime import datetime
-from pydantic import BaseModel, Field
+from typing import Any, Dict
+
 from langchain_core.documents import Document
+from pydantic import BaseModel, Field
+
 
 class LifeEvent(BaseModel):
     """
@@ -32,7 +34,7 @@ class LifeEvent(BaseModel):
             "source_type": self.source_type,
             "created_at": self.created_at.isoformat()
         })
-        
+
         return Document(
             page_content=self.content,
             metadata=full_metadata
@@ -44,12 +46,12 @@ class LifeEvent(BaseModel):
         [Adapter]: 将检索回来的 Document 还原为领域模型
         """
         meta = doc.metadata.copy()
-        
+
         # 提取核心字段
         uuid_str = meta.pop("uuid", str(uuid.uuid4()))
         source_type = meta.pop("source_type", "unknown")
         created_at_str = meta.pop("created_at", None)
-        
+
         created_at = datetime.now()
         if created_at_str:
             try:

@@ -1,6 +1,5 @@
 """Validation script for Echo-Board implementation."""
 
-import os
 import sys
 from pathlib import Path
 
