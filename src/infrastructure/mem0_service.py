@@ -1,4 +1,5 @@
 import os
+
 from dotenv import find_dotenv
 from dotenv.main import load_dotenv
 from langchain_chroma import Chroma

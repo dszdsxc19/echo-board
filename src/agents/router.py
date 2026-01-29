@@ -4,10 +4,9 @@ import re
 from typing import Literal
 
 from dotenv import find_dotenv, load_dotenv
-from pydantic import BaseModel, Field, SecretStr
-from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
-import os
+from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, Field, SecretStr
 
 load_dotenv(find_dotenv())
 

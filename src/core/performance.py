@@ -1,9 +1,9 @@
 """Performance monitoring and metrics for Echo-Board application."""
 
 import time
-from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Dict, List, Optional
 
 from .logging import EchoBoardLogger
 

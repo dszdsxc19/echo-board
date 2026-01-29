@@ -1,10 +1,9 @@
 """Configuration management for Echo-Board application."""
 
 from pathlib import Path
-from typing import Optional, List, Literal
-import os
+from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class LLMConfig(BaseModel):
@@ -143,7 +142,7 @@ class Settings(BaseModel):
         except Exception:
             # Silently ignore .env loading errors
             pass
-        
+
         return cls()
 
 

@@ -1,9 +1,8 @@
-import os
-from src.infrastructure.vector_store import KnowledgeBase
-from src.infrastructure.obsidian_loader import MemoryIngestionEngine
 from src.agents.archivist import Archivist
-from src.agents.strategist import Strategist
 from src.agents.coach import Coach  # 导入新角色
+from src.agents.strategist import Strategist
+from src.infrastructure.obsidian_loader import MemoryIngestionEngine
+from src.infrastructure.vector_store import KnowledgeBase
 
 # 模拟一份"纠结"的数据
 # 场景：用户想买很贵的游戏机，但最近没写代码且没钱
@@ -26,23 +25,23 @@ MOCK_DATA = """
 
 def main():
     print("🚀 启动 Board Meeting (Debate Mode)...")
-    
+
     # 1. 基础设施准备
     kb = KnowledgeBase(persist_dir="./data/chroma_db", reset_db=True)
     engine = MemoryIngestionEngine(knowledge_base=kb)
     engine.process_file(MOCK_DATA, source_name="financial_crisis.md")
-    
+
     # 2. 角色就位
     archivist = Archivist(kb=kb)
     strategist = Strategist()
     coach = Coach()
-    
+
     # 3. 用户提问
     user_query = "我心情不好，想买个 VR 头显 (3500元) 奖励自己，可以吗？"
     print(f"\n🗣️ 用户提问: {user_query}")
-    
+
     # ==========================================
-    
+
     # Step 1: 史官查证 (The Facts)
     # ==========================================
     print("\n" + "="*40)
@@ -51,7 +50,7 @@ def main():
     archivist_result = archivist.consult(user_query)
     facts = archivist_result["answer"]
     # print(facts) # 调试时可以打印看看
-    
+
     # ==========================================
     # Step 2: 战略官发言 (The Thesis)
     # ==========================================
@@ -61,7 +60,7 @@ def main():
     # 战略官基于 事实 + 提问 进行判断
     strat_opinion = strategist.opine(query=user_query, context=facts)
     print(strat_opinion)
-    
+
     # ==========================================
     # Step 3: 教练发言 (The Antithesis)
     # ==========================================
@@ -70,8 +69,8 @@ def main():
     print("="*40)
     # 教练不仅看事实，还要看战略官怎么说，然后决定是支持还是反对
     coach_opinion = coach.opine(
-        query=user_query, 
-        context=facts, 
+        query=user_query,
+        context=facts,
         strategist_opinion=strat_opinion
     )
     print(coach_opinion)

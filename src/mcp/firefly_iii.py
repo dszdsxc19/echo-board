@@ -1,6 +1,7 @@
-import sys
-from langchain_mcp_adapters.client import MultiServerMCPClient
 import asyncio
+
+from langchain_mcp_adapters.client import MultiServerMCPClient
+
 
 async def create_mcp_tools():
     """
@@ -20,7 +21,7 @@ async def create_mcp_tools():
     print("🔌 正在连接 MCP Servers...")
     tools = await client.get_tools()
     print(f"✅ 成功加载 {len(tools)} 个 MCP 工具: {[t.name for t in tools]}")
-    
+
     return tools
 
 if __name__ == "__main__":

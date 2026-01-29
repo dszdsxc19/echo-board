@@ -1,14 +1,12 @@
 """Data validation checkpoints throughout the Echo-Board workflow."""
 
-from typing import List, Dict, Any, Optional
-from pathlib import Path
 import os
-
-from .models.note import Note
-from .models.conversation import ConversationSession
-from .models.context import ContextDocument
+from pathlib import Path
+from typing import Any, Dict, List
 
 from .logging import EchoBoardLogger
+from .models.conversation import ConversationSession
+from .models.note import Note
 
 logger = EchoBoardLogger.get_logger("validation")
 
